@@ -60,7 +60,7 @@ contract AgentWallet is ReentrancyGuard {
     /// @notice 注册的 Agent 列表
     AgentInfo[] public agents;
 
-    /// @notice Agent 地址 => Agent 索引
+    /// @notice Agent 地址 => 1-based 索引（值为 agents.length，0 表示未注册，访问时用 agents[idx - 1]）
     mapping(address => uint256) public agentIndex;
 
     /// @notice Agent 地址 => 策略配置
