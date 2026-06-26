@@ -113,7 +113,7 @@ contract WithModifier {
 ```solidity
 contract WithEvents {
     // 定义事件
-    event Transfer(address indexed from, address indexed to, uint256 amountapse);
+    event Transfer(address indexed from, address indexed to, uint256 amount);
 
     function transfer(address to, uint256 amount) public {
         // ... 转账逻辑 ...
@@ -236,12 +236,44 @@ npx hardhat run scripts/deploy-hello.ts --network sepolia
 
 ---
 
-## 📖 本章小结
+---
 
-你已学会：
-- ✅ Solidity 基本语法
-- ✅ 状态变量、函数、修饰符、事件
-- ✅ 与外部合约交互
-- ✅ 部署合约到测试网
+## ✅ 本章检查点
 
-**下一步**：进入第2章，开发真正的 ERC-4337 智能合约钱包。
+完成本章后，确认以下事项：
+
+### 你应该理解的概念
+- [x] Solidity 基本语法：状态变量、函数、修饰符、事件
+- [x] `msg.sender` 的含义和安全使用
+- [x] 接口（interface）和与外部合约交互
+- [x] `receive()` 函数和 ETH 接收
+- [x] 合约部署的基本流程
+
+### 验证命令
+```bash
+# 确认合约能编译通过
+npx hardhat compile
+
+# 运行测试确认环境正常
+npx hardhat test
+```
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 编译报错 "ParserError" | 检查 Solidity 版本是否为 ^0.8.24 |
+| 部署时 "insufficient funds" | 确认测试网账户有足够的 ETH |
+| 导入 OpenZeppelin 报错 | 运行 `npm install @openzeppelin/contracts` |
+
+---
+
+## 🔗 下一章预告
+
+你已经掌握了 Solidity 基础，接下来我们要用这些知识构建一个**真正有用的合约**：
+
+- 为什么普通钱包（EOA）不适合 AI Agent？
+- 什么是 ERC-4337 账户抽象？
+- 如何开发一个 Agent 可以自主操作的智能合约钱包？
+
+→ 进入 [第2章：ERC-4337 智能合约钱包开发](02-erc4337-wallet.md)

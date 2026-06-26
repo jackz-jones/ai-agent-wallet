@@ -1,6 +1,17 @@
 # 第5章：x402 支付协议集成
 
-> x402 协议让 AI Agent 能像人一样"付钱买服务"——不需要 API Key，不需要注册，直接付 USDC 就行。
+> **本章在整体架构中的位置**：x402 是 Agent 的“支付能力”——让 Agent 能像人一样付费调用外部服务，不需要 API Key。
+
+---
+
+## 📍 前情回顾
+
+在第4章中，你已经：
+- ✅ 开发了基于 LLM 的 AI Agent（理解自然语言 → 执行链上操作）
+- ✅ 集成了 Coinbase AgentKit
+- ✅ 理解了 Agent 的完整思考和执行流程
+
+但 Agent 目前只能操作自己的钱包。如果它需要调用外部付费 API（如搜索、数据服务），传统方式是给它一个 API Key——但这有泄露风险。x402 协议提供了更优雅的解决方案。
 
 ---
 
@@ -242,7 +253,7 @@ class X402Provider {
     res: express.Response,
     next: express.NextFunction
   ) {
-    const price = this.getPrice(req.pathipse);
+    const price = this.getPrice(req.path);
 
     // 如果该路径不需要付费
     if (!price) {
@@ -500,13 +511,44 @@ npx ts-node agent/agent-with-x402.ts
 
 ---
 
-## 📖 本章小结
+## ✅ 本章检查点
 
-你已完成：
-- ✅ 理解了 x402 协议的完整工作流程
-- ✅ 开发了 x402 消费者（Agent 付钱调用 API）
-- ✅ 开发了 x402 提供者（你的 API 支持 x402 支付）
-- ✅ 将 x402 集成到 AI Agent 中
-- ✅ 了解了 x402 生态现状
+完成本章后，确认以下事项：
 
-**下一步**：进入第6章，完成完整实战项目。
+### 文件清单
+- [x] `agent/x402-consumer.ts` — x402 消费者（Agent 付费调用 API）
+- [x] `server/x402-provider.ts` — x402 提供者（你的 API 支持 x402）
+- [x] `agent/agent-with-x402.ts` — 集成 x402 的完整 Agent
+
+### 验证命令
+```bash
+# 启动 x402 提供者服务（新终端）
+npx ts-node server/x402-provider.ts
+
+# 运行 x402 消费者测试
+npx ts-node agent/x402-consumer.ts
+```
+
+### 你应该理解的概念
+- [x] x402 协议的工作流程：请求 → 402 → 支付 → 重试
+- [x] 消费者端：Agent 如何自动处理支付流程
+- [x] 提供者端：如何让你的 API 支持 x402
+- [x] x402 vs 传统 API Key 的优势
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| x402 支付失败 | 确认 Agent 钱包有足够 USDC（Base 链） |
+| 服务端验证支付失败 | 检查链 ID 和收款地址是否匹配 |
+| 本地测试无法支付 | x402 需要真实链上交易，本地测试可 mock 支付流程 |
+
+---
+
+## 🔗 下一章预告
+
+所有组件都已就绪！现在让我们把它们组装成一个完整的 DeFi 自动理财 Agent：
+- AgentWallet（链上钱包）+ PolicyEngine（安全策略）+ AI Agent（LLM 决策）+ x402（支付能力）
+- 实现自动定投、收益监控、风险控制
+
+→ 进入 [第6章：完整实战 — DeFi 自动理财 Agent](06-full-project.md)

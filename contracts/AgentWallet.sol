@@ -103,7 +103,8 @@ contract AgentWallet is ReentrancyGuard {
 
     modifier onlyActiveAgent() {
         uint256 idx = agentIndex[msg.sender];
-        require(agents[idx].active, "AgentWallet: agent not active");
+        require(idx > 0, "AgentWallet: agent not found");
+        require(agents[idx - 1].active, "AgentWallet: agent not active");
         _;
     }
 
@@ -286,7 +287,7 @@ contract AgentWallet is ReentrancyGuard {
         PolicyConfig storage policy = agentPolicies[msg.sender];
         policy.dailyUsed += _value;
 
-        (bool success, ) = _target.call{value: _value}(_data针);
+        (bool success, ) = _target.call{value: _value}(_data);
         require(success, "AgentWallet: call failed");
 
         agentTransactions[msg.sender].push(TransactionRecord({

@@ -90,10 +90,10 @@ contract PolicyEngine {
     mapping(address => Policy[]) public agentPolicies;
 
     /// @notice Agent 地址 => 白名单参数
-    mapping(address => WhitelistParams) public whitelistParams;
+    mapping(address => WhitelistParams) internal whitelistParams;
 
     /// @notice Agent 地址 => 黑名单参数
-    mapping(address => BlacklistParams) public blacklistParams;
+    mapping(address => BlacklistParams) internal blacklistParams;
 
     /// @notice Agent 地址 => 限额参数
     mapping(address => SpendingLimitParams) public spendingLimitParams;
@@ -112,7 +112,7 @@ contract PolicyEngine {
     event PolicyAdded(address indexed agent, PolicyType indexed policyType, string description);
     event PolicyRemoved(address indexed agent, uint256 policyIndex);
     event PolicyUpdated(address indexed agent, uint256 policyIndex);
-    event PolicyCheck(address indexed agent, address indexed target, bool allowed, string reasonapsed);
+    event PolicyCheck(address indexed agent, address indexed target, bool allowed, string reason);
     event WalletAddressUpdated(address indexed newWallet);
 
     // ============ 修饰器 ============
@@ -300,20 +300,20 @@ contract PolicyEngine {
             PolicyType pType = policies[i].policyType;
 
             if (pType == PolicyType.Whitelist) {
-                (bool ok, string memory msg) = checkWhitelist(_agent, _target);
-                if (!ok) return (false, msg);
+                (bool ok, string memory errMsg) = checkWhitelist(_agent, _target);
+                if (!ok) return (false, errMsg);
             } else if (pType == PolicyType.Blacklist) {
-                (bool ok, string memory msg) = checkBlacklist(_agent, _target);
-                if (!ok) return (false, msg);
+                (bool ok, string memory errMsg) = checkBlacklist(_agent, _target);
+                if (!ok) return (false, errMsg);
             } else if (pType == PolicyType.SpendingLimit) {
-                (bool ok, string memory msg) = checkSpendingLimit(_agent, _value);
-                if (!ok) return (false, msg);
+                (bool ok, string memory errMsg) = checkSpendingLimit(_agent, _value);
+                if (!ok) return (false, errMsg);
             } else if (pType == PolicyType.RateLimit) {
-                (bool ok, string memory msg) = checkRateLimit(_agent);
-                if (!ok) return (false, msg);
+                (bool ok, string memory errMsg) = checkRateLimit(_agent);
+                if (!ok) return (false, errMsg);
             } else if (pType == PolicyType.TimeWindow) {
-                (bool ok, string memory msg) = checkTimeWindow(_agent);
-                if (!ok) return (false, msg);
+                (bool ok, string memory errMsg) = checkTimeWindow(_agent);
+                if (!ok) return (false, errMsg);
             }
         }
 
@@ -439,19 +439,19 @@ contract PolicyEngine {
             PolicyType pType = policies[i].policyType;
 
             if (pType == PolicyType.Whitelist) {
-                (bool ok, string memory msg) = checkWhitelist(_agent, _target);
-                results[i] = PolicyCheckResult(ok, msg);
+                (bool ok, string memory errMsg) = checkWhitelist(_agent, _target);
+                results[i] = PolicyCheckResult(ok, errMsg);
             } else if (pType == PolicyType.Blacklist) {
-                (bool ok, string memory msg) = checkBlacklist(_agent, _target);
-                results[i] = PolicyCheckResult(ok, msg);
+                (bool ok, string memory errMsg) = checkBlacklist(_agent, _target);
+                results[i] = PolicyCheckResult(ok, errMsg);
             } else if (pType == PolicyType.SpendingLimit) {
                 bool ok = _value <= spendingLimitParams[_agent].perTxLimit;
                 results[i] = PolicyCheckResult(ok, ok ? "" : "exceeds per-tx limit");
             } else if (pType == PolicyType.RateLimit) {
                 results[i] = PolicyCheckResult(true, "rate limit check at execution");
             } else if (pType == PolicyType.TimeWindow) {
-                (bool ok, string memory msg) = checkTimeWindow(_agent);
-                results[i] = PolicyCheckResult(ok, msg);
+                (bool ok, string memory errMsg) = checkTimeWindow(_agent);
+                results[i] = PolicyCheckResult(ok, errMsg);
             } else {
                 results[i] = PolicyCheckResult(false, "Unknown policy type");
             }

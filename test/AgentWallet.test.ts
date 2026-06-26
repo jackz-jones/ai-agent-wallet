@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { AgentWallet, PolicyEngine, StrategyManager } from "../typechain-types";
+import { AgentWallet } from "../typechain-types";
 
 describe("AgentWallet", function () {
   let wallet: AgentWallet;

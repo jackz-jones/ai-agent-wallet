@@ -6,13 +6,11 @@ import { ethers } from "hardhat";
  *
  * 【使用场景】
  * 测试策略引擎的各项功能：
- * - 白名单策略：只允许与指定合约交互
- * - 黑名单策略：禁止与已知风险地址交互
- * - 函数白名单：只允许特定函数调用
- * - 金额限制：单笔/每日限额
+ * - 白名单策略：只允许与白名单地址交互
+ * - 黑名单策略：禁止与黑名单地址交互
+ * - 限额策略：单笔/每日限额
  * - 速率限制：控制交易频率
  * - 时间窗口：只在特定时间允许操作
- * - 紧急暂停：异常行为自动暂停
  *
  * 【运行方式】
  * npx hardhat test test/PolicyEngine.test.ts
@@ -23,278 +21,233 @@ describe("PolicyEngine", function () {
   let wallet: any;
   let owner: any;
   let agent: any;
+  let recipient: any;
 
   beforeEach(async function () {
-    [owner, agent] = await ethers.getSigners();
+    [owner, agent, recipient] = await ethers.getSigners();
 
-    const PolicyEngine = await ethers.getContractFactory("PolicyEngine");
-    engine = await PolicyEngine.deploy();
-    await engine.waitForDeployment();
-
-    // 部署一个测试钱包
+    // 先部署 AgentWallet 作为 walletAddress
     const AgentWallet = await ethers.getContractFactory("AgentWallet");
-    wallet = await AgentWallet.deploy(
-      owner.address,
-      agent.address,
-      "TestAgent",
-      ethers.parseEther("1"),
-      ethers.parseEther("0.1")
-    );
+    wallet = await AgentWallet.deploy();
     await wallet.waitForDeployment();
+
+    const walletAddr = await wallet.getAddress();
+
+    // 部署 PolicyEngine，传入 walletAddress
+    const PolicyEngine = await ethers.getContractFactory("PolicyEngine");
+    engine = await PolicyEngine.deploy(walletAddr);
+    await engine.waitForDeployment();
+  });
+
+  // ============ 部署测试 ============
+
+  describe("Deployment", function () {
+    it("应该正确设置 owner", async function () {
+      expect(await engine.owner()).to.equal(owner.address);
+    });
+
+    it("应该正确设置 walletAddress", async function () {
+      const walletAddr = await wallet.getAddress();
+      expect(await engine.walletAddress()).to.equal(walletAddr);
+    });
   });
 
   // ============ 白名单策略 ============
 
-  it("白名单策略应该拒绝未授权的合约", async function () {
-    const walletAddr = await wallet.getAddress();
+  describe("Whitelist Policy", function () {
+    it("应该成功添加白名单策略", async function () {
+      await engine.addWhitelistPolicy(
+        agent.address,
+        [recipient.address],
+        "只允许与指定地址交互"
+      );
 
-    // 设置白名单策略
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: true,
-      useBlacklist: false,
-      useFunctionWhitelist: false,
-      useAmountLimits: false,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: 0,
-      maxDaily: 0,
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+      const count = await engine.getPolicyCount(agent.address);
+      expect(count).to.equal(1);
     });
 
-    // 检查未在白名单的合约
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",  // 未授权合约
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(false);
+    it("只有 owner 能添加策略", async function () {
+      await expect(
+        engine.connect(agent).addWhitelistPolicy(
+          agent.address,
+          [recipient.address],
+          "测试"
+        )
+      ).to.be.revertedWith("PolicyEngine: only owner");
+    });
   });
 
-  it("白名单策略应该允许已授权的合约", async function () {
-    const walletAddr = await wallet.getAddress();
-    const allowedContract = "0x0000000000000000000000000000000000000002";
+  // ============ 黑名单策略 ============
 
-    // 设置白名单策略
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: true,
-      useBlacklist: false,
-      useFunctionWhitelist: false,
-      useAmountLimits: false,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: 0,
-      maxDaily: 0,
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+  describe("Blacklist Policy", function () {
+    it("应该成功添加黑名单策略", async function () {
+      const blacklistedAddr = "0x0000000000000000000000000000000000000001";
+      await engine.addBlacklistPolicy(
+        agent.address,
+        [blacklistedAddr],
+        "禁止与风险地址交互"
+      );
+
+      const count = await engine.getPolicyCount(agent.address);
+      expect(count).to.equal(1);
+    });
+  });
+
+  // ============ 限额策略 ============
+
+  describe("Spending Limit Policy", function () {
+    it("应该成功添加限额策略", async function () {
+      await engine.addSpendingLimitPolicy(
+        agent.address,
+        ethers.parseEther("5"),   // 日限额 5 ETH
+        ethers.parseEther("1"),   // 单笔限额 1 ETH
+        "标准限额策略"
+      );
+
+      const count = await engine.getPolicyCount(agent.address);
+      expect(count).to.equal(1);
+    });
+  });
+
+  // ============ 速率限制策略 ============
+
+  describe("Rate Limit Policy", function () {
+    it("应该成功添加速率限制策略", async function () {
+      await engine.addRateLimitPolicy(
+        agent.address,
+        10,     // 最多 10 笔
+        3600,   // 1 小时窗口
+        "每小时最多 10 笔交易"
+      );
+
+      const count = await engine.getPolicyCount(agent.address);
+      expect(count).to.equal(1);
+    });
+  });
+
+  // ============ 时间窗口策略 ============
+
+  describe("Time Window Policy", function () {
+    it("应该成功添加时间窗口策略", async function () {
+      await engine.addTimeWindowPolicy(
+        agent.address,
+        9,      // 9:00 开始
+        18,     // 18:00 结束
+        [1, 2, 3, 4, 5],  // 周一到周五
+        "工作日 9:00-18:00 允许交易"
+      );
+
+      const count = await engine.getPolicyCount(agent.address);
+      expect(count).to.equal(1);
+    });
+  });
+
+  // ============ 策略移除 ============
+
+  describe("Policy Removal", function () {
+    it("应该成功移除策略", async function () {
+      await engine.addWhitelistPolicy(
+        agent.address,
+        [recipient.address],
+        "白名单策略"
+      );
+
+      await engine.addBlacklistPolicy(
+        agent.address,
+        ["0x0000000000000000000000000000000000000001"],
+        "黑名单策略"
+      );
+
+      expect(await engine.getPolicyCount(agent.address)).to.equal(2);
+
+      await engine.removePolicy(agent.address, 0);
+      expect(await engine.getPolicyCount(agent.address)).to.equal(1);
     });
 
-    // 添加合约到白名单
-    await engine.addToWhitelist(walletAddr, allowedContract);
-
-    // 检查已授权的合约
-    const result = await engine.checkPolicy(
-      allowedContract,
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(true);
+    it("移除不存在的策略应该失败", async function () {
+      await expect(
+        engine.removePolicy(agent.address, 0)
+      ).to.be.revertedWith("PolicyEngine: invalid index");
+    });
   });
 
-  // ============ 金额限制 ============
+  // ============ 管理函数 ============
 
-  it("金额限制策略应该拒绝超额交易", async function () {
-    const walletAddr = await wallet.getAddress();
-
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: false,
-      useBlacklist: false,
-      useFunctionWhitelist: false,
-      useAmountLimits: true,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: ethers.parseEther("1"),    // 单笔最多 1 ETH
-      maxDaily: ethers.parseEther("5"),     // 每日最多 5 ETH
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+  describe("Admin Functions", function () {
+    it("应该能更新 walletAddress", async function () {
+      const newWallet = recipient.address;
+      await engine.updateWalletAddress(newWallet);
+      expect(await engine.walletAddress()).to.equal(newWallet);
     });
 
-    // 检查超额交易（2 ETH > 1 ETH 限额）
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      ethers.parseEther("2"),
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(false);
+    it("只有 owner 能更新 walletAddress", async function () {
+      await expect(
+        engine.connect(agent).updateWalletAddress(recipient.address)
+      ).to.be.revertedWith("PolicyEngine: only owner");
+    });
   });
 
-  it("金额限制策略应该允许限额内交易", async function () {
-    const walletAddr = await wallet.getAddress();
+  // ============ 批量策略检查（view 函数，不需要 wallet 调用） ============
 
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: false,
-      useBlacklist: false,
-      useFunctionWhitelist: false,
-      useAmountLimits: true,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: ethers.parseEther("1"),
-      maxDaily: ethers.parseEther("5"),
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+  describe("Batch Policy Check", function () {
+    it("无策略时应返回空数组", async function () {
+      const results = await engine.checkAllPolicies(
+        agent.address,
+        recipient.address,
+        ethers.parseEther("0.1")
+      );
+      expect(results.length).to.equal(0);
     });
 
-    // 检查限额内交易（0.5 ETH < 1 ETH 限额）
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      ethers.parseEther("0.5"),
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(true);
-  });
+    it("白名单策略应正确检查目标地址", async function () {
+      await engine.addWhitelistPolicy(
+        agent.address,
+        [recipient.address],
+        "白名单"
+      );
 
-  // ============ 紧急暂停 ============
+      // 检查白名单中的地址
+      const results = await engine.checkAllPolicies(
+        agent.address,
+        recipient.address,
+        0
+      );
+      expect(results.length).to.equal(1);
+      expect(results[0].allowed).to.equal(true);
 
-  it("暂停状态下应该拒绝所有交易", async function () {
-    const walletAddr = await wallet.getAddress();
-
-    // 暂停钱包
-    await engine.setPaused(walletAddr, true);
-
-    // 检查暂停状态下的交易
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(false);
-  });
-
-  it("恢复后应该允许交易", async function () {
-    const walletAddr = await wallet.getAddress();
-
-    // 先暂停
-    await engine.setPaused(walletAddr, trueipse);
-
-    // 恢复
-    await engine.setPaused(walletAddr, false);
-
-    // 恢复后应该允许交易（没有启用其他策略）
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(true);
-  });
-
-  // ============ 函数白名单 ============
-
-  it("函数白名单应该拒绝未授权的函数调用", async function () {
-    const walletAddr = await wallet.getAddress();
-
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: false,
-      useBlacklist: false,
-      useFunctionWhitelist: true,
-      useAmountLimits: false,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: 0,
-      maxDaily: 0,
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+      // 检查不在白名单中的地址
+      const results2 = await engine.checkAllPolicies(
+        agent.address,
+        "0x0000000000000000000000000000000000000099",
+        0
+      );
+      expect(results2.length).to.equal(1);
+      expect(results2[0].allowed).to.equal(false);
     });
 
-    // 添加一个允许的函数选择器
-    const allowedSelector = ethers.id("transfer(address,uint256)").substring(0, 10);
-    await engine.addFunctionToWhitelist(walletAddr, allowedSelector);
+    it("限额策略应正确检查金额", async function () {
+      await engine.addSpendingLimitPolicy(
+        agent.address,
+        ethers.parseEther("5"),
+        ethers.parseEther("1"),
+        "限额"
+      );
 
-    // 调用未授权的函数
-    const unauthorizedData = ethers.id("destroy()").substring(0, 10);
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      0,
-      unauthorizedData,
-      agent.address
-    );
-    expect(result).to.equal(false);
-  });
+      // 限额内
+      const results = await engine.checkAllPolicies(
+        agent.address,
+        recipient.address,
+        ethers.parseEther("0.5")
+      );
+      expect(results[0].allowed).to.equal(true);
 
-  // ============ 黑名单 ============
-
-  it("黑名单策略应该拒绝列入黑名单的合约", async function () {
-    const walletAddr = await wallet.getAddress();
-    const blacklistedContract = "0x0000000000000000000000000000000000000003";
-
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: false,
-      useBlacklist: true,
-      useFunctionWhitelist: false,
-      useAmountLimits: false,
-      useRateLimit: false,
-      useTimeWindow: false,
-      maxPerTx: 0,
-      maxDaily: 0,
-      maxRate: 0,
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
+      // 超出单笔限额
+      const results2 = await engine.checkAllPolicies(
+        agent.address,
+        recipient.address,
+        ethers.parseEther("2")
+      );
+      expect(results2[0].allowed).to.equal(false);
     });
-
-    // 添加合约到黑名单
-    await engine.addToBlacklist(walletAddr, blacklistedContract);
-
-    // 检查黑名单中的合约
-    const result = await engine.checkPolicy(
-      blacklistedContract,
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(false);
-  });
-
-  // ============ 速率限制 ============
-
-  it("速率限制策略应该拒绝超频交易", async function () {
-    const walletAddr = await wallet.getAddress();
-
-    await engine.setPolicy(walletAddr, {
-      useWhitelist: false,
-      useBlacklist: false,
-      useFunctionWhitelist: false,
-      useAmountLimits: false,
-      useRateLimit: true,
-      useTimeWindow: false,
-      maxPerTx: 0,
-      maxDaily: 0,
-      maxRate: 2,  // 每分钟最多 2 笔
-      timeWindowStart: 0,
-      timeWindowEnd: 0,
-    });
-
-    // 前两笔应该成功
-    await engine.checkPolicy("0x0000000000000000000000000000000000000001", 0, "0x", agent.address);
-    await engine.checkPolicy("0x0000000000000000000000000000000000000001", 0, "0x", agent.address);
-
-    // 第三笔应该被拒绝
-    const result = await engine.checkPolicy(
-      "0x0000000000000000000000000000000000000001",
-      0,
-      "0x",
-      agent.address
-    );
-    expect(result).to.equal(false);
   });
 });

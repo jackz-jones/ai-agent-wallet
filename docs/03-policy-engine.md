@@ -1,11 +1,58 @@
 # 第3章：策略引擎合约开发
 
-> 策略引擎是 AI Agent 钱包的"安全大脑"。
-> 它决定 Agent 能做什么、不能做什么。
+> **本章在整体架构中的位置**：策略引擎是 AI Agent 钱包的"安全大脑"，位于 Agent 和钱包之间，决定 Agent 能做什么、不能做什么。
 
 ---
 
-## 3.1 策略引擎是什么？
+## 📍 前情回顾
+
+在第2章中，你已经：
+- ✅ 理解了 EOA 钱包 vs 智能合约钱包的区别
+- ✅ 开发了 AgentWallet 合约（Agent 注册、限额控制、交易执行）
+- ✅ 所有测试通过，合约可以编译部署
+
+但 AgentWallet 中的限额控制还比较简单（只有日限额和单笔限额）。现实中，我们需要更丰富的安全策略。
+
+---
+
+## 3.1 为什么需要策略引擎？（反面案例）
+
+> ⚠️ **安全警示**：如果没有策略引擎，AI Agent 可能造成灾难性损失。
+
+### 没有策略引擎会怎样？
+
+想象一下这些场景：
+
+| 场景 | 没有策略引擎 | 有策略引擎 |
+|------|-------------|-----------|
+| Agent 被 Prompt Injection 攻击 | 💀 Agent 把所有资金转给攻击者 | ✅ 超出限额，交易被拒绝 |
+| LLM 产生幻觉（Hallucination） | 💀 Agent 向不存在的合约转账 | ✅ 目标不在白名单，交易被拒绝 |
+| Agent 陷入死循环 | 💀 疯狂发交易耗尽 Gas | ✅ 速率限制触发，自动暂停 |
+| 凌晨3点市场剧烈波动 | 💀 Agent 恐慌性抛售 | ✅ 不在允许时间窗口，交易被拒绝 |
+
+### 真实案例警示
+
+```
+2024年某 DeFi Agent 事故：
+- Agent 被恶意 prompt 诱导，认为需要"紧急转移资金到安全地址"
+- 没有策略引擎约束，Agent 将 50 ETH 转给了攻击者
+- 如果有白名单策略，这笔交易会被立即拦截
+
+教训：AI 不是 100% 可靠的，必须用代码（策略引擎）来兜底
+```
+
+### 最小权限原则
+
+> 💡 **核心安全理念**：给 Agent 的权限应该是完成任务所需的**最小权限**，而不是"方便起见"给最大权限。
+
+```
+❌ 错误做法：Agent 可以向任何地址转任意金额
+✅ 正确做法：Agent 只能向白名单地址转账，每笔不超过 0.1 ETH，每天不超过 1 ETH
+```
+
+---
+
+## 3.2 策略引擎的设计
 
 ```
 Agent 想: "我要把钱包里所有钱转给这个地址"
@@ -379,7 +426,7 @@ contract PolicyTemplates {
             timeWindowEnd: 20     // UTC 20:00
         });
 
-        policyEngine.setPolicy(wallet, configipse);
+        policyEngine.setPolicy(wallet, config);
         for (uint i = 0; i < allowedAddresses.length; i++) {
             policyEngine.addToWhitelist(wallet, allowedAddresses[i]);
         }
@@ -591,13 +638,49 @@ function execute(address to, uint256 value, bytes calldata data)
 
 ---
 
-## 📖 本章小结
+## ✅ 本章检查点
 
-你已完成：
-- ✅ 开发了完整的策略引擎合约
-- ✅ 实现了白名单/黑名单/金额限制/速率限制/时间窗口
-- ✅ 开发了预置策略模板
-- ✅ 将策略引擎接入钱包合约
-- ✅ 编写并通过了策略引擎测试
+完成本章后，确认以下事项：
 
-**下一步**：进入第4章，开发 Agent 应用。
+### 文件清单
+- [x] `contracts/PolicyEngine.sol` — 策略引擎合约
+- [x] `contracts/PolicyTemplates.sol` — 策略模板库
+- [x] `test/PolicyEngine.test.ts` — 策略引擎测试
+
+### 验证命令
+```bash
+# 编译通过
+npx hardhat compile
+
+# 策略引擎测试通过
+npx hardhat test test/PolicyEngine.test.ts
+```
+
+### 你应该理解的概念
+- [x] 策略引擎的作用：在 Agent 和链上操作之间加一层"安检"
+- [x] 各种策略类型：白名单、黑名单、限额、速率限制、时间窗口
+- [x] 策略模板的设计思路：针对不同场景预设安全规则
+- [x] 策略引擎如何与钱包合约集成
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 编译报错 "internal type" | 包含动态数组的结构体不能用 `public`，改为 `internal` |
+| 测试中 `checkTransaction` 报错 | 确保调用者是 `walletAddress`（onlyWallet 修饰器） |
+| 速率限制测试不稳定 | 时间相关测试需要用 `hardhat_mine` 推进区块 |
+
+---
+
+## 🔗 下一章预告
+
+合约层面的工作已经完成！现在我们有了：
+- AgentWallet（Agent 的链上钱包）
+- PolicyEngine（安全策略引擎）
+
+但这些合约需要有人来"驱动"——这就是 AI Agent 应用的角色：
+- Agent 如何连接到链上合约？
+- Agent 如何用 LLM 做出交易决策？
+- Agent 如何安全地签名和提交交易？
+
+→ 进入 [第4章：Agent 应用开发](04-agent-app.md)

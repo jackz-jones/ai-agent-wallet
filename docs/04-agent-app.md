@@ -1,10 +1,48 @@
 # 第4章：Agent 应用开发
 
-> 现在开始开发真正的 AI Agent！Agent 将使用 OpenAI 的 AI 能力，结合我们开发的智能合约钱包，实现自主链上操作。
+> **本章在整体架构中的位置**：这是“连接层”——用 AI 能力驱动链上合约，让 Agent 能理解自然语言并自主执行链上操作。
 
 ---
 
-## 4.1 Agent 架构总览
+## 📍 前情回顾
+
+在前三章中，你已经：
+- ✅ 开发了 AgentWallet 合约（Agent 的链上钱包）
+- ✅ 开发了 PolicyEngine 合约（安全策略引擎）
+- ✅ 合约已部署到本地/测试网，所有测试通过
+
+现在合约层已就绪，但还缺一个“大脑”来驱动它们。本章我们开发 AI Agent 应用，让 LLM 来做决策，合约来执行。
+
+---
+
+## 4.1 传统方式 vs Agent 方式
+
+在深入代码之前，先理解为什么要用 AI Agent 来操作链上资产：
+
+| | 传统方式（人工操作） | AI Agent 方式 |
+|---|---|---|
+| **操作方式** | 人工打开 DApp，手动签名每笔交易 | Agent 自动监控市场、自主决策和执行 |
+| **响应速度** | 分钟级（人需要看到通知、打开钱包） | 毫秒级（Agent 24/7 在线） |
+| **执行一致性** | 受情绪影响（恐慌抛售、贪婪追涨） | 严格按策略执行，不受情绪干扰 |
+| **覆盖范围** | 一个人最多盯几个协议 | Agent 可以同时监控数十个协议 |
+| **安全性** | 私钥在人手中（可能被钓鱼） | 私钥在合约中，受策略引擎保护 |
+| **成本** | 人力成本高 | 只需 Gas 费 + LLM 调用费 |
+
+> ⚠️ **安全警告：关于私钥**
+>
+> Agent 需要一个私钥来签名交易。**绝对不要**：
+> - ❌ 把主钱包私钥给 Agent
+> - ❌ 在代码中硬编码私钥
+> - ❌ 把私钥提交到 Git
+>
+> **正确做法**：
+> - ✅ 为 Agent 创建专用的 EOA（权限最小化）
+> - ✅ 私钥存在 `.env` 文件中，`.env` 加入 `.gitignore`
+> - ✅ 生产环境使用 KMS（密钥管理服务）
+
+---
+
+## 4.2 Agent 架构总览
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -598,13 +636,50 @@ npx ts-node agent/agent-kit.ts
 
 ---
 
-## 📖 本章小结
+## ✅ 本章检查点
 
-你已完成：
-- ✅ 开发了基于 LLM 的 AI Agent
-- ✅ Agent 能理解自然语言并执行链上操作
-- ✅ 集成了 Coinbase AgentKit
-- ✅ 理解了 Agent 的完整思考流程
-- ✅ 实现了 Agent 与钱包合约的交互
+完成本章后，确认以下事项：
 
-**下一步**：进入第5章，集成 x402 支付协议。
+### 文件清单
+- [x] `agent/simple-agent.ts` — 基础 Agent（直接使用 OpenAI）
+- [x] `agent/agent-kit.ts` — Coinbase AgentKit 版本
+
+### 验证命令
+```bash
+# 确认 TypeScript 编译无错误
+npx tsc --noEmit agent/simple-agent.ts 2>/dev/null || echo "请确保已安装依赖"
+
+# 运行基础 Agent（需要 OPENAI_API_KEY）
+npx ts-node agent/simple-agent.ts
+
+# 或者运行 mock 模式（不需要 API Key）
+npx hardhat run scripts/demo.ts --network hardhat
+```
+
+### 你应该理解的概念
+- [x] Agent 的三层架构：LLM 大脑 → 工具层 → 钱包层
+- [x] Function Calling：LLM 如何决定调用哪个工具
+- [x] Agent 与钱包合约的交互流程
+- [x] Coinbase AgentKit 的使用方式
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 没有 OpenAI API Key | 可以用 `scripts/demo.ts` 体验 mock 模式 |
+| Agent 运行报错 "insufficient funds" | 确保钱包合约有足够 ETH |
+| Function Calling 不触发 | 检查 system prompt 是否清晰描述了工具用途 |
+| AgentKit 初始化失败 | 确认 CDP_API_KEY_NAME 和 CDP_API_KEY_PRIVATE_KEY 已配置 |
+
+---
+
+## 🔗 下一章预告
+
+Agent 现在能自主执行链上交易了，但它还不能“付费调用外部服务”。
+
+传统方式是给 Agent 一个 API Key，但这有安全风险。x402 协议让 Agent 能像人一样“付钱买服务”：
+- 不需要注册账号
+- 不需要 API Key
+- 直接用加密货币微支付
+
+→ 进入 [第5章：x402 支付协议集成](05-x402-payment.md)
