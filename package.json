@@ -1,0 +1,45 @@
+{
+  "name": "ai-agent-wallet-tutorial",
+  "version": "1.0.0",
+  "description": "AI Agent Wallet 开发全流程教程 - 从零开始构建自主 DeFi Agent",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:all": "npx ts-node scripts/deploy-all.ts",
+    "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
+    "configure": "hardhat run scripts/configure-agent.ts --network sepolia",
+    "test-agent": "hardhat run scripts/test-agent.ts --network sepolia",
+    "send-user-op": "npx ts-node scripts/send-user-op.ts",
+    "agent:simple": "npx ts-node agent/simple-agent.ts",
+    "agent:defi": "npx ts-node agent/defi-agent.ts",
+    "agent:kit": "npx ts-node agent/agent-kit.ts",
+    "agent:x402": "npx ts-node agent/agent-with-x402.ts",
+    "server:x402": "npx ts-node server/x402-provider.ts",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
+  },
+  "keywords": ["solidity", "ethereum", "hardhat", "ai-agent", "defi", "wallet"],
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.4.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "ethers": "^6.12.0",
+    "openai": "^4.50.0",
+    "express": "^4.18.0",
+    "@account-abstraction/sdk": "^0.6.0",
+    "@account-abstraction/contracts": "^0.6.0",
+    "@coinbase/agentkit": "^0.1.0",
+    "@coinbase/agentkit-langchain": "^0.1.0",
+    "@langchain/core": "^0.1.0",
+    "@langchain/openai": "^0.1.0",
+    "@langchain/langgraph": "^0.1.0"
+  }
+}

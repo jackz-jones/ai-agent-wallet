@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agent 钱包仪表盘</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* Header */
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 0; border-bottom: 1px solid #1a1a2e; margin-bottom: 24px;
+    }
+    .header h1 { font-size: 24px; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .network-badge {
+      background: #1a1a2e; padding: 6px 16px; border-radius: 20px;
+      font-size: 13px; color: #22c55e; border: 1px solid #22c55e33;
+    }
+
+    /* Cards Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card {
+      background: #111118; border: 1px solid #1a1a2e; border-radius: 12px;
+      padding: 20px; transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #6366f1; }
+    .card-title { font-size: 13px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card-value { font-size: 28px; font-weight: 600; }
+    .card-sub { font-size: 12px; color: #666; margin-top: 4px; }
+
+    /* Agent Chat */
+    .chat-section { background: #111118; border: 1px solid #1a1a2e; border-radius: 12px; overflow: hidden; }
+    .chat-header { padding: 16px 20px; border-bottom: 1px solid #1a1a2e; font-weight: 600; }
+    .chat-messages { padding: 20px; min-height: 200px; max-height: 300px; overflow-y: auto; }
+    .message { margin-bottom: 12px; display: flex; }
+    .message.user { justify-content: flex-end; }
+    .message-bubble {
+      max-width: 70%; padding: 10px 16px; border-radius: 12px;
+      font-size: 14px; line-height: 1.5;
+    }
+    .message.user .message-bubble { background: #6366f1; color: #fff; border-bottom-right-radius: 4px; }
+    .message.agent .message-bubble { background: #1a1a2e; color: #e0e0e0; border-bottom-left-radius: 4px; }
+    .chat-input { display: flex; padding: 12px 20px; border-top: 1px solid #1a1a2e; gap: 8px; }
+    .chat-input input {
+      flex: 1; background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px;
+      padding: 10px 16px; color: #e0e0e0; font-size: 14px; outline: none;
+    }
+    .chat-input input:focus { border-color: #6366f1; }
+    .chat-input button {
+      background: #6366f1; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 20px; cursor: pointer; font-size: 14px; transition: background 0.2s;
+    }
+    .chat-input button:hover { background: #4f46e5; }
+
+    /* Transactions Table */
+    .table-section { margin-top: 24px; }
+    .table-section h2 { font-size: 16px; margin-bottom: 12px; color: #888; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; font-size: 12px; color: #666; text-transform: uppercase; border-bottom: 1px solid #1a1a2e; }
+    td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #1a1a2e; }
+    .status { padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+    .status.success { background: #22c55e22; color: #22c55e; }
+    .status.pending { background: #eab30822; color: #eab308; }
+    .status.failed { background: #ef444422; color: #ef4444; }
+    .address { font-family: monospace; font-size: 12px; color: #888; }
+    .empty-state { text-align: center; padding: 40px; color: #666; }
+    .empty-state p { margin-top: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🤖 AI Agent 钱包</h1>
+      <span class="network-badge">● Sepolia 测试网</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">钱包余额</div>
+        <div class="card-value" id="ethBalance">-- ETH</div>
+        <div class="card-sub">≈ $-- USD</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Agent 状态</div>
+        <div class="card-value" id="agentStatus">--</div>
+        <div class="card-sub" id="agentName">DeFiAgent</div>
+      </div>
+      <div class="card">
+        <div class="card-title">今日已用限额</div>
+        <div class="card-value" id="todaySpent">-- ETH</div>
+        <div class="card-sub">日限额: -- ETH</div>
+      </div>
+      <div class="card">
+        <div class="card-title">交易总数</div>
+        <div class="card-value" id="txCount">--</div>
+        <div class="card-sub">最近 24 小时</div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-section">
+      <div class="chat-header">💬 Agent 对话</div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="message agent">
+          <div class="message-bubble">你好！我是 DeFiAgent，你的链上 AI 助手。有什么可以帮你的？</div>
+        </div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="输入指令，如：查看余额、转 0.01 ETH 给 0x..." />
+        <button onclick="sendMessage()">发送</button>
+      </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="table-section">
+      <h2>📋 最近交易</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>交易哈希</th>
+            <th>类型</th>
+            <th>金额</th>
+            <th>状态</th>
+            <th>时间</th>
+          </tr>
+        </thead>
+        <tbody id="txTableBody">
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <div>📭</div>
+                <p>暂无交易记录。连接钱包后开始交易。</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // ============ 配置 ============
+    const CONFIG = {
+      WALLET_ADDRESS: localStorage.getItem('walletAddress') || '0x...',
+      AGENT_API_URL: 'http://localhost:3001/api',  // Agent 后端 API
+    };
+
+    // ============ 更新余额 ============
+    async function updateBalance() {
+      try {
+        const response = await fetch(`${CONFIG.AGENT_API_URL}/balance`);
+        const data = await response.json();
+        document.getElementById('ethBalance').textContent = `${data.eth} ETH`;
+        document.getElementById('todaySpent').textContent = `${data.spentToday} ETH`;
+        document.getElementById('agentStatus').textContent = data.active ? '✅ 活跃' : '❌ 暂停';
+      } catch {
+        document.getElementById('ethBalance').textContent = '-- ETH';
+      }
+    }
+
+    // ============ 发送消息 ============
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      // 添加用户消息
+      addMessage('user', message);
+      input.value = '';
+
+      // 调用 Agent API
+      try {
+        const response = await fetch(`${CONFIG.AGENT_API_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        const data = await response.json();
+        addMessage('agent', data.response);
+      } catch {
+        addMessage('agent', '⚠️ 无法连接到 Agent 后端服务。请确保 Agent 正在运行。');
+      }
+    }
+
+    // ============ 添加消息 ============
+    function addMessage(role, content) {
+      const container = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = `<div class="message-bubble">${content}</div>`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // ============ 回车发送 ============
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    // ============ 初始化 ============
+    updateBalance();
+    setInterval(updateBalance, 30000); // 每 30 秒刷新
+  </script>
+</body>
+</html>

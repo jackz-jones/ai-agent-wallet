@@ -1,0 +1,12 @@
+node_modules/
+cache/
+artifacts/
+dist/
+typechain-types/
+.env
+deployment.json
+agent-config.json
+coverage/
+coverage.json
+.DS_Store
+.idea/
