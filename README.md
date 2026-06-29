@@ -23,7 +23,7 @@ graph TB
 
     subgraph 链上安全层
         Wallet[📦 AgentWallet<br/>ERC-4337 智能合约钱包]
-        Policy[🛡️ PolicyEngine<br/>策略引擎：限额/白名单/速率]
+        Policy[🛡️ PolicyEngine<br/>策略引擎：限额/白名单/黑名单/速率/滑点⚡]
         Strategy[📊 StrategyManager<br/>DeFi 策略管理器]
     end
 
@@ -37,6 +37,10 @@ graph TB
         x402[💰 x402 协议<br/>HTTP 原生支付]
     end
 
+    subgraph 知识层
+        Knowledge[📖 Knowledge Base<br/>DEX/AMM/滑点/LP 深度解析]
+    end
+
     User -->|设置策略/紧急暂停| Wallet
     User -->|配置权限| Policy
     Agent -->|决策 + 签名| Wallet
@@ -47,6 +51,8 @@ graph TB
     Wallet -->|提交 UserOp| EntryPoint
     EntryPoint -->|打包| Bundler
     Strategy -->|交互| DeFi
+    Strategy -->|DEX交易滑点参考| Knowledge
+    User -->|学习DeFi知识| Knowledge
 ```
 
 **核心理念**：AI Agent 拥有链上钱包的操作权限，但受到策略引擎的严格约束。人类用户保留最高权限（紧急暂停、修改策略），Agent 在授权范围内自主决策和执行交易。
@@ -112,10 +118,13 @@ npx hardhat run scripts/demo.ts --network hardhat
 | **[第0章](docs/00-environment.md)** | 环境搭建与基础知识 | ⭐ | 20 分钟 |
 | **[第1章](docs/01-solidity-basics.md)** | Solidity 智能合约基础 | ⭐⭐ | 45 分钟 |
 | **[第2章](docs/02-erc4337-wallet.md)** | ERC-4337 智能合约钱包开发 | ⭐⭐⭐ | 60 分钟 |
-| **[第3章](docs/03-policy-engine.md)** | 策略引擎合约开发 | ⭐⭐⭐ | 45 分钟 |
+| **[第3章](docs/03-policy-engine.md)** | 策略引擎合约开发（含白名单/黑名单对比、滑点保护⚡） | ⭐⭐⭐ | 45 分钟 |
 | **[第4章](docs/04-agent-app.md)** | Agent 应用开发（Node.js） | ⭐⭐⭐ | 60 分钟 |
 | **[第5章](docs/05-x402-payment.md)** | x402 支付协议集成 | ⭐⭐⭐⭐ | 45 分钟 |
 | **[第6章](docs/06-full-project.md)** | 完整实战：DeFi 自动理财 Agent | ⭐⭐⭐⭐⭐ | 90 分钟 |
+| **[附录](docs/appendix.md)** | 合约接口速查 & Gas 优化 & 安全清单 | ⭐⭐ | 20 分钟 |
+| **[📖 DEX滑点知识](docs/knowledge/dex-slippage.md)** | DEX/AMM/滑点/三明治攻击/LP 完整解析 | ⭐⭐⭐ | 30 分钟 |
+| **[📋 问题跟踪](docs/knowledge/issues.md)** | 项目 Review 问题列表及修复状态 | ⭐ | 10 分钟 |
 
 ---
 
@@ -153,11 +162,15 @@ ai-agent-wallet/
     ├── 00-environment.md         # 环境搭建
     ├── 01-solidity-basics.md     # Solidity 基础
     ├── 02-erc4337-wallet.md      # ERC-4337 钱包
-    ├── 03-policy-engine.md       # 策略引擎
+    ├── 03-policy-engine.md       # 策略引擎（含白名单/黑名单对比、滑点保护⚡）
     ├── 04-agent-app.md           # Agent 应用
     ├── 05-x402-payment.md        # x402 支付
     ├── 06-full-project.md        # 完整实战
-    └── troubleshooting.md        # 常见问题排查
+    ├── troubleshooting.md        # 常见问题排查
+    ├── appendix.md               # 附录
+    └── knowledge/                # 📖 知识文档（DeFi/DEX 深度解析）
+        ├── dex-slippage.md       # DEX 滑点控制与三明治攻击详解
+        └── issues.md             # 项目问题跟踪列表
 ```
 
 ---
@@ -166,10 +179,11 @@ ai-agent-wallet/
 
 1. ✅ 理解 AI Agent + 区块链的完整技术栈和设计理念
 2. ✅ 编写和部署 ERC-4337 智能合约钱包
-3. ✅ 设计 AI Agent 的安全策略引擎（限额、白名单、速率限制）
+3. ✅ 设计 AI Agent 的安全策略引擎（限额、白名单/黑名单、速率限制、滑点保护⚡）
 4. ✅ 开发能用钱包自主交易的 AI Agent（基于 LLM）
 5. ✅ 集成 x402 协议实现 Agent 自主支付
 6. ✅ 构建一个完整的 DeFi 自动理财 Agent
+7. ✅ 理解 DEX/AMM/滑点/三明治攻击等 DeFi 核心概念
 
 ---
 
