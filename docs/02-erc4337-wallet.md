@@ -392,4 +392,4 @@ npx hardhat run scripts/deploy.ts --network hardhat
 - 如果 Agent 交易太频繁怎么办？（速率限制）
 - 如果需要只在工作时间允许交易怎么办？（时间窗口）
 
-→ 第3章我们将开发**策略引擎（PolicyEngine）**，实现更丰富的安全策略。
+→ 进入 [第3章：策略引擎合约开发](03-policy-engine.md)，实现更丰富的安全策略。
