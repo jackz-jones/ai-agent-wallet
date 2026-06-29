@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /**
  * @title PolicyEngine
  * @notice AI Agent 策略引擎 — 管理 Agent 的权限和限制
- * @dev 支持白名单/黑名单、限额、速率限制、时间窗口等策略
+ * @dev 支持白名单/黑名单、限额、速率限制、时间窗口、滑点保护等策略
  *
  * 策略类型：
  * 1. WhitelistPolicy — 只允许与白名单地址交互
@@ -12,6 +12,7 @@ pragma solidity ^0.8.24;
  * 3. SpendingLimitPolicy — 日限额/单笔限额
  * 4. RateLimitPolicy — 速率限制（每分钟/每小时最大交易数）
  * 5. TimeWindowPolicy — 仅在指定时间窗口内允许交易
+ * 6. SlippagePolicy — DEX 交易滑点保护（限制最大滑点）
  */
 contract PolicyEngine {
     // ============ 类型定义 ============
@@ -22,7 +23,8 @@ contract PolicyEngine {
         Blacklist,
         SpendingLimit,
         RateLimit,
-        TimeWindow
+        TimeWindow,
+        Slippage
     }
 
     /// @notice 策略状态
@@ -75,6 +77,12 @@ contract PolicyEngine {
         uint256[] allowedDays;      // 允许的星期几（0=周日, 1=周一, ...）
     }
 
+    /// @notice 滑点保护策略参数
+    struct SlippageParams {
+        bool enabled;               // 是否启用滑点保护
+        uint256 maxSlippageBps;     // 最大滑点（基点，1% = 100 bps，如 1% → 100，0.5% → 50）
+    }
+
     /// @notice 策略检查结果
     struct PolicyCheckResult {
         bool allowed;
@@ -103,6 +111,9 @@ contract PolicyEngine {
 
     /// @notice Agent 地址 => 时间窗口参数
     mapping(address => TimeWindowParams) public timeWindowParams;
+
+    /// @notice Agent 地址 => 滑点保护参数
+    mapping(address => SlippageParams) public slippageParams;
 
     /// @notice 钱包合约地址（授权调用者）
     address public walletAddress;
@@ -266,6 +277,34 @@ contract PolicyEngine {
         emit PolicyAdded(_agent, PolicyType.TimeWindow, _description);
     }
 
+    /// @notice 为 Agent 添加滑点保护策略
+    /// @param _agent Agent 地址
+    /// @param _maxSlippageBps 最大滑点（基点，1% = 100 bps）
+    /// @param _description 策略描述
+    function addSlippagePolicy(
+        address _agent,
+        uint256 _maxSlippageBps,
+        string calldata _description
+    ) external onlyOwner {
+        require(_maxSlippageBps > 0 && _maxSlippageBps <= 1000, "PolicyEngine: slippage bps out of range (1-1000)");
+
+        slippageParams[_agent] = SlippageParams({
+            enabled: true,
+            maxSlippageBps: _maxSlippageBps
+        });
+
+        agentPolicies[_agent].push(Policy({
+            policyType: PolicyType.Slippage,
+            status: PolicyStatus.Active,
+            params: abi.encode(_maxSlippageBps),
+            createdAt: block.timestamp,
+            updatedAt: block.timestamp,
+            description: _description
+        }));
+
+        emit PolicyAdded(_agent, PolicyType.Slippage, _description);
+    }
+
     /// @notice 移除 Agent 的策略
     function removePolicy(address _agent, uint256 _policyIndex) external onlyOwner {
         require(_policyIndex < agentPolicies[_agent].length, "PolicyEngine: invalid index");
@@ -314,6 +353,14 @@ contract PolicyEngine {
             } else if (pType == PolicyType.TimeWindow) {
                 (bool ok, string memory errMsg) = checkTimeWindow(_agent);
                 if (!ok) return (false, errMsg);
+            } else if (pType == PolicyType.Slippage) {
+                // 滑点保护需要通过 checkSlippage 单独调用（因为需要 expectedAmount 和 minAmountOut 参数）
+                // 在 checkTransaction 中仅检查滑点策略是否已启用
+                SlippageParams storage sp = slippageParams[_agent];
+                if (sp.enabled) {
+                    // 滑点保护已启用，实际滑点校验在 checkSlippage 中完成
+                    continue;
+                }
             }
         }
 
@@ -419,6 +466,30 @@ contract PolicyEngine {
         return (true, "");
     }
 
+    /// @notice 滑点保护检查（需由钱包合约在 DEX 交易时调用）
+    /// @param _agent Agent 地址
+    /// @param _expectedAmount 期望得到的代币数量
+    /// @param _minAmountOut 交易参数中设置的最少输出数量
+    function checkSlippage(
+        address _agent,
+        uint256 _expectedAmount,
+        uint256 _minAmountOut
+    ) external view onlyWallet returns (bool allowed, string memory reason) {
+        SlippageParams storage params = slippageParams[_agent];
+
+        if (!params.enabled) return (true, "");
+        if (_expectedAmount == 0) return (true, "");
+
+        // 计算实际滑点（基点）
+        // slippage = (expectedAmount - minAmountOut) / expectedAmount * 10000
+        uint256 slippage = ((_expectedAmount - _minAmountOut) * 10000) / _expectedAmount;
+
+        if (slippage > params.maxSlippageBps) {
+            return (false, "PolicyEngine: slippage exceeds limit");
+        }
+        return (true, "");
+    }
+
     // ============ 批量策略检查 ============
 
     /// @notice 批量检查所有策略
@@ -452,6 +523,13 @@ contract PolicyEngine {
             } else if (pType == PolicyType.TimeWindow) {
                 (bool ok, string memory errMsg) = checkTimeWindow(_agent);
                 results[i] = PolicyCheckResult(ok, errMsg);
+            } else if (pType == PolicyType.Slippage) {
+                SlippageParams storage sp = slippageParams[_agent];
+                if (sp.enabled) {
+                    results[i] = PolicyCheckResult(true, "slippage check at execution (requires expectedAmount/minAmountOut)");
+                } else {
+                    results[i] = PolicyCheckResult(true, "slippage protection disabled");
+                }
             } else {
                 results[i] = PolicyCheckResult(false, "Unknown policy type");
             }
