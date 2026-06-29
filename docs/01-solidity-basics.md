@@ -196,42 +196,55 @@ contract ReceiveETH {
 
 ## 1.6 部署你的第一个合约
 
-创建 `scripts/deploy-hello.ts`：
+创建 `scripts/deploy.ts`：
 
 ```typescript
 import { ethers } from "hardhat";
 
 async function main() {
-  // 获取合约工厂
-  const HelloWorld = await ethers.getContractFactory("HelloWorld");
+  console.log("Deploying AgentWallet...");
 
-  // 部署合约（传入构造函数参数）
-  const hello = await HelloWorld.deploy("Hello, AI Agent!");
+  // 部署 AgentWallet
+  const AgentWallet = await ethers.getContractFactory("AgentWallet");
+  const wallet = await AgentWallet.deploy();
+  await wallet.waitForDeployment();
 
-  await hello.waitForDeployment();
+  const walletAddress = await wallet.getAddress();
+  console.log(`AgentWallet deployed to: ${walletAddress}`);
 
-  const address = await hello.getAddress();
-  console.log("合约部署到:", address);
+  // 部署 PolicyEngine
+  const PolicyEngine = await ethers.getContractFactory("PolicyEngine");
+  const policyEngine = await PolicyEngine.deploy(walletAddress);
+  await policyEngine.waitForDeployment();
 
-  // 调用合约
-  const greeting = await hello.getGreeting();
-  console.log("当前问候语:", greeting);
+  const policyEngineAddress = await policyEngine.getAddress();
+  console.log(`PolicyEngine deployed to: ${policyEngineAddress}`);
 
-  // 修改状态
-  const tx = await hello.setGreeting("Hello, Blockchain!");
-  await tx.wait();
+  // 部署 StrategyManager
+  const StrategyManager = await ethers.getContractFactory("StrategyManager");
+  const strategyManager = await StrategyManager.deploy(walletAddress, policyEngineAddress);
+  await strategyManager.waitForDeployment();
 
-  const newGreeting = await hello.getGreeting();
-  console.log("修改后:", newGreeting);
+  const strategyManagerAddress = await strategyManager.getAddress();
+  console.log(`StrategyManager deployed to: ${strategyManagerAddress}`);
+
+  // 输出部署摘要
+  console.log("\n=== Deployment Summary ===");
+  console.log(`AgentWallet:      ${walletAddress}`);
+  console.log(`PolicyEngine:     ${policyEngineAddress}`);
+  console.log(`StrategyManager:  ${strategyManagerAddress}`);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 ```
 
 运行：
 
 ```bash
-npx hardhat run scripts/deploy-hello.ts --network sepolia
+npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
 ---
