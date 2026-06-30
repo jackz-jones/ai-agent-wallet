@@ -60,7 +60,7 @@ async function createChatOpenAI(config: LLMConfig): Promise<BaseChatModel> {
 
   if (!config.apiKey) {
     throw new Error(
-      "[LangChain/OpenAI] 缺少 API Key。请配置 LLM_API_KEY 或 OPENAI_API_KEY。"
+      "[LangChain/OpenAI] 缺少 API Key。请在 .env 中配置 LLM_API_KEY。"
     );
   }
 
@@ -93,7 +93,7 @@ async function createChatAnthropic(config: LLMConfig): Promise<BaseChatModel> {
 
   if (!config.apiKey) {
     throw new Error(
-      "[LangChain/Anthropic] 缺少 API Key。请配置 LLM_API_KEY 或 ANTHROPIC_API_KEY。"
+      "[LangChain/Anthropic] 缺少 API Key。请在 .env 中配置 LLM_API_KEY。"
     );
   }
 
@@ -113,7 +113,7 @@ async function createChatGemini(config: LLMConfig): Promise<BaseChatModel> {
 
   if (!config.apiKey) {
     throw new Error(
-      "[LangChain/Gemini] 缺少 API Key。请配置 LLM_API_KEY 或 GOOGLE_API_KEY。"
+      "[LangChain/Gemini] 缺少 API Key。请在 .env 中配置 LLM_API_KEY。"
     );
   }
 

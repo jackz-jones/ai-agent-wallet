@@ -17,7 +17,7 @@
  * 3. 在 .env 中配置以下变量：
  *    - LLM_PROVIDER (openai / ollama / anthropic / gemini，默认 openai)
  *    - LLM_MODEL (模型名称，可选)
- *    - LLM_API_KEY (API Key，也支持 OPENAI_API_KEY 等专用变量)
+ *    - LLM_API_KEY (API Key，Ollama 无需配置)
  *    - LLM_BASE_URL (自定义端点，可选)
  *    - SEPOLIA_RPC_URL
  *    - AGENT_PRIVATE_KEY

@@ -643,7 +643,7 @@ LLM_PROVIDER=openai
 # 模型名称（可选，不填则使用默认模型）
 LLM_MODEL=gpt-4o
 
-# API Key（通用，也支持各提供商专用变量如 OPENAI_API_KEY）
+# API Key（统一使用 LLM_API_KEY，Ollama 无需配置）
 LLM_API_KEY=sk-你的Key
 
 # 自定义 API 端点（可选，用于代理或自定义部署）

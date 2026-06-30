@@ -52,7 +52,7 @@ export class GeminiProvider implements LLMProvider {
   async validate(): Promise<void> {
     if (!this.genAI.apiKey) {
       throw new Error(
-        "[Gemini] 缺少 API Key。请在 .env 中配置 LLM_API_KEY 或 GOOGLE_API_KEY。"
+        "[Gemini] 缺少 API Key。请在 .env 中配置 LLM_API_KEY。"
       );
     }
   }

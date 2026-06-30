@@ -40,7 +40,7 @@ export class AnthropicProvider implements LLMProvider {
   async validate(): Promise<void> {
     if (!this.client.apiKey) {
       throw new Error(
-        "[Anthropic] 缺少 API Key。请在 .env 中配置 LLM_API_KEY 或 ANTHROPIC_API_KEY。"
+        "[Anthropic] 缺少 API Key。请在 .env 中配置 LLM_API_KEY。"
       );
     }
   }

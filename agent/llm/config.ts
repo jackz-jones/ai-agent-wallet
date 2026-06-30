@@ -7,7 +7,7 @@
  * - LLM_PROVIDER: 提供商名称 (openai / ollama / anthropic / gemini)
  * - LLM_MODEL: 模型名称
  * - LLM_BASE_URL: 自定义 API 端点
- * - LLM_API_KEY: API Key（也支持各提供商专用的 Key 变量）
+ * - LLM_API_KEY: API Key（Ollama 无需配置）
  */
 
 import type { LLMConfig, LLMProviderType } from "./types";
@@ -43,7 +43,7 @@ export function loadLLMConfig(): LLMConfig {
   // 读取 API 端点
   const baseUrl = process.env.LLM_BASE_URL || undefined;
 
-  // 读取 API Key（优先使用 LLM_API_KEY，其次使用各提供商专用变量）
+  // 读取 API Key（统一使用 LLM_API_KEY，Ollama 无需配置）
   const apiKey = resolveApiKey(provider);
 
   return {
