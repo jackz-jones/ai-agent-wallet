@@ -6,10 +6,20 @@
  * AgentKit 提供了开箱即用的链上操作能力（钱包、交易、部署合约等），
  * 适合快速搭建生产级 AI Agent。
  * 
+ * 【支持的 LLM 提供商】
+ * - OpenAI (gpt-4o 等)
+ * - Ollama (本地模型，如 llama3, qwen2)
+ * - Anthropic Claude (claude-sonnet-4-20250514 等)
+ * - Google Gemini (gemini-2.0-flash 等)
+ * 
  * 【前置条件】
  * 1. 安装依赖：npm install @coinbase/agentkit @coinbase/agentkit-langchain @langchain/core @langchain/openai @langchain/langgraph
  * 2. 注册 Coinbase Developer Platform (CDP) 账号获取 API Key
- * 3. 在 .env 中配置 CDP_API_KEY_NAME 和 CDP_API_KEY_PRIVATE_KEY
+ * 3. 在 .env 中配置：
+ *    - CDP_API_KEY_NAME 和 CDP_API_KEY_PRIVATE_KEY
+ *    - LLM_PROVIDER (openai / ollama / anthropic / gemini，默认 openai)
+ *    - LLM_MODEL (模型名称，可选)
+ *    - LLM_API_KEY (API Key)
  * 
  * 【运行方式】
  * npx ts-node agent/agent-kit.ts
@@ -23,9 +33,9 @@
 import { AgentKit, CdpWalletProvider } from "@coinbase/agentkit";
 import { getLangChainTools } from "@coinbase/agentkit-langchain";
 import { HumanMessage } from "@langchain/core/messages";
-import { ChatOpenAI } from "@langchain/openai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import * as dotenv from "dotenv";
+import { createLangChainLLM } from "./llm/langchain-adapter";
 
 dotenv.config();
 
@@ -50,19 +60,13 @@ async function createAgentKitAgent() {
   // 2. 初始化 AgentKit
   const agentKit = await AgentKit.init({
     walletProvider,
-    // 可以添加更多能力
-    // mpcApiKeyName: process.env.MPC_API_KEY_NAME,
-    // mpcApiKeyPrivate: process.env.MPC_API_KEY_PRIVATE,
   });
 
   // 3. 获取 AgentKit 提供的工具
   const tools = await getLangChainTools(agentKit);
 
-  // 4. 创建 LLM
-  const llm = new ChatOpenAI({
-    model: "gpt-4o",
-    temperature: 0,
-  });
+  // 4. 创建 LLM（根据配置动态选择提供商）
+  const llm = await createLangChainLLM();
 
   // 5. 创建 Agent
   const agent = createReactAgent({

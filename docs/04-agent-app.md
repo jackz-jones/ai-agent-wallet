@@ -619,18 +619,121 @@ Agent 的思考过程:
 
 ---
 
-## 4.6 运行 Agent
+## 4.6 LLM 模型配置（多模型支持）
+
+Agent 支持多种 LLM 提供商，通过环境变量即可切换，无需修改代码。
+
+### 支持的提供商
+
+| 提供商 | `LLM_PROVIDER` | 默认模型 | 说明 |
+|--------|---------------|----------|------|
+| OpenAI | `openai` | `gpt-4o` | 默认提供商，支持原生 Function Calling |
+| Ollama | `ollama` | `llama3` | 本地模型，无需 API Key，注重隐私 |
+| Anthropic | `anthropic` | `claude-sonnet-4-20250514` | Claude 模型，长上下文推理能力强 |
+| Google | `gemini` | `gemini-2.0-flash` | Gemini 模型，支持原生 Function Calling |
+
+### 环境变量配置
+
+在 `.env` 文件中配置以下变量：
+
+```bash
+# LLM 提供商（openai / ollama / anthropic / gemini）
+LLM_PROVIDER=openai
+
+# 模型名称（可选，不填则使用默认模型）
+LLM_MODEL=gpt-4o
+
+# API Key（通用，也支持各提供商专用变量如 OPENAI_API_KEY）
+LLM_API_KEY=sk-你的Key
+
+# 自定义 API 端点（可选，用于代理或自定义部署）
+LLM_BASE_URL=
+```
+
+### 使用示例
+
+**使用 OpenAI GPT-4o（默认）：**
+```bash
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-xxx
+```
+
+**使用本地 Ollama（无需 API Key）：**
+```bash
+# 先启动 Ollama: ollama serve
+# 拉取模型: ollama pull llama3
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3
+```
+
+**使用 Anthropic Claude：**
+```bash
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-sonnet-4-20250514
+LLM_API_KEY=sk-ant-xxx
+```
+
+**使用 Google Gemini：**
+```bash
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.0-flash
+LLM_API_KEY=AIza-xxx
+```
+
+### 架构说明
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    AI Agent                           │
+│                                                       │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │           LLM 抽象层 (agent/llm/)                 │ │
+│  │                                                    │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────┐ │ │
+│  │  │ OpenAI   │ │ Ollama   │ │Anthropic │ │Gemini│ │ │
+│  │  │ Provider │ │ Provider │ │ Provider │ │Provid│ │ │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────┘ │ │
+│  │                                                    │ │
+│  │  统一接口: chatCompletion(messages, tools)         │ │
+│  └──────────────────────────────────────────────────┘ │
+│         │                                             │
+│         ▼                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
+│  │  工具层       │  │  降级方案     │  │  钱包层     │  │
+│  │ (Function    │  │ (Fallback)   │  │  (Web3)    │  │
+│  │  Calling)    │  │              │  │            │  │
+│  └──────────────┘  └──────────────┘  └────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+> 💡 **降级方案**：对于不支持原生 Function Calling 的模型（如部分 Ollama 本地模型），
+> 系统会自动切换到基于 prompt 的工具调用模拟，将工具定义注入 system prompt 并解析 LLM 输出。
+
+---
+
+## 4.7 运行 Agent
 
 ```bash
 # 设置环境变量
 export AGENT_PRIVATE_KEY=0x你的Agent私钥
 export WALLET_CONTRACT_ADDRESS=0x你部署的钱包地址
-export OPENAI_API_KEY=sk-你的OpenAIKey
 
-# 运行基础 Agent
+# 方式1: 使用 OpenAI（默认）
+export LLM_PROVIDER=openai
+export LLM_API_KEY=sk-你的OpenAIKey
 npx ts-node agent/simple-agent.ts
 
-# 或运行 AgentKit 版本
+# 方式2: 使用本地 Ollama（无需 API Key）
+export LLM_PROVIDER=ollama
+export LLM_MODEL=llama3
+npx ts-node agent/simple-agent.ts
+
+# 方式3: 使用 Claude
+export LLM_PROVIDER=anthropic
+export LLM_API_KEY=sk-ant-你的Key
+npx ts-node agent/simple-agent.ts
+
+# 运行 AgentKit 版本
 npx ts-node agent/agent-kit.ts
 ```
 
@@ -641,8 +744,17 @@ npx ts-node agent/agent-kit.ts
 完成本章后，确认以下事项：
 
 ### 文件清单
-- [x] `agent/simple-agent.ts` — 基础 Agent（直接使用 OpenAI）
-- [x] `agent/agent-kit.ts` — Coinbase AgentKit 版本
+- [x] `agent/simple-agent.ts` — 基础 Agent（支持多种 LLM 提供商）
+- [x] `agent/agent-kit.ts` — Coinbase AgentKit 版本（支持多种 LLM）
+- [x] `agent/llm/types.ts` — LLM 统一类型定义
+- [x] `agent/llm/config.ts` — 配置加载模块
+- [x] `agent/llm/index.ts` — 工厂函数入口
+- [x] `agent/llm/fallback.ts` — Function Calling 降级方案
+- [x] `agent/llm/providers/openai.ts` — OpenAI 适配器
+- [x] `agent/llm/providers/ollama.ts` — Ollama 适配器
+- [x] `agent/llm/providers/anthropic.ts` — Anthropic Claude 适配器
+- [x] `agent/llm/providers/gemini.ts` — Google Gemini 适配器
+- [x] `agent/llm/langchain-adapter.ts` — LangChain LLM 适配器
 
 ### 验证命令
 ```bash
@@ -661,15 +773,19 @@ npx hardhat run scripts/demo.ts --network hardhat
 - [x] Function Calling：LLM 如何决定调用哪个工具
 - [x] Agent 与钱包合约的交互流程
 - [x] Coinbase AgentKit 的使用方式
+- [x] LLM 抽象层：如何通过统一接口支持多种模型
+- [x] 环境变量配置：如何切换不同的 LLM 提供商
 
 ### 常见问题
 
 | 问题 | 解决方案 |
 |------|----------|
-| 没有 OpenAI API Key | 可以用 `scripts/demo.ts` 体验 mock 模式 |
+| 没有 OpenAI API Key | 切换到 Ollama 本地模型：`LLM_PROVIDER=ollama`，或用 `scripts/demo.ts` 体验 mock 模式 |
 | Agent 运行报错 "insufficient funds" | 确保钱包合约有足够 ETH |
-| Function Calling 不触发 | 检查 system prompt 是否清晰描述了工具用途 |
+| Function Calling 不触发 | 检查 system prompt 是否清晰描述了工具用途；部分 Ollama 模型会自动降级到 prompt 模拟 |
 | AgentKit 初始化失败 | 确认 CDP_API_KEY_NAME 和 CDP_API_KEY_PRIVATE_KEY 已配置 |
+| Ollama 连接失败 | 确保 Ollama 已启动：`ollama serve`，并已拉取模型：`ollama pull llama3` |
+| LLM 配置验证失败 | 检查 `.env` 中的 `LLM_PROVIDER`、`LLM_API_KEY` 是否正确配置 |
 
 ---
 

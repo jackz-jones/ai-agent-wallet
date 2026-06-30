@@ -2,14 +2,23 @@
  * agent/simple-agent.ts
  * 
  * 【使用场景】
- * 开发一个基础的 AI Agent，通过 OpenAI Function Calling 让 LLM
+ * 开发一个基础的 AI Agent，通过 LLM Function Calling 让大模型
  * 能够调用智能合约钱包执行链上操作。
+ * 
+ * 【支持的 LLM 提供商】
+ * - OpenAI (gpt-4o 等)
+ * - Ollama (本地模型，如 llama3, qwen2)
+ * - Anthropic Claude (claude-sonnet-4-20250514 等)
+ * - Google Gemini (gemini-2.0-flash 等)
  * 
  * 【前置条件】
  * 1. 已完成 scripts/deploy.ts 部署，获取合约地址
- * 2. 已安装依赖：npm install openai ethers dotenv
+ * 2. 已安装依赖：npm install openai ethers dotenv @anthropic-ai/sdk @google/generative-ai
  * 3. 在 .env 中配置以下变量：
- *    - OPENAI_API_KEY
+ *    - LLM_PROVIDER (openai / ollama / anthropic / gemini，默认 openai)
+ *    - LLM_MODEL (模型名称，可选)
+ *    - LLM_API_KEY (API Key，也支持 OPENAI_API_KEY 等专用变量)
+ *    - LLM_BASE_URL (自定义端点，可选)
  *    - SEPOLIA_RPC_URL
  *    - AGENT_PRIVATE_KEY
  *    - WALLET_CONTRACT_ADDRESS
@@ -23,9 +32,15 @@
  * 你: 查询我的 Agent 配置信息
  */
 
-import OpenAI from "openai";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import {
+  initLLMProvider,
+  type LLMProvider,
+  type ToolDefinition,
+  type ToolCall,
+  type ChatMessage,
+} from "./llm";
 
 dotenv.config();
 
@@ -33,22 +48,17 @@ dotenv.config();
  * AI Agent 核心类
  *
  * 功能：
- * 1. 使用 LLM 理解用户意图
+ * 1. 使用 LLM 理解用户意图（支持多种模型提供商）
  * 2. 调用链上工具执行操作
  * 3. 通过智能合约钱包签名交易
  */
 class AIAgent {
-  private openai: OpenAI;
+  private llm!: LLMProvider;
   private provider: ethers.Provider;
   private agentWallet: ethers.Wallet;
   private walletContract: ethers.Contract;
 
   constructor() {
-    // 初始化 OpenAI
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
     // 连接区块链
     this.provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 
@@ -72,20 +82,24 @@ class AIAgent {
   }
 
   /**
+   * 初始化 LLM 提供商（异步，需在使用前调用）
+   */
+  async init(): Promise<void> {
+    this.llm = await initLLMProvider();
+  }
+
+  /**
    * 处理用户消息
    */
   async processMessage(userMessage: string): Promise<string> {
     // 定义 Agent 可用的工具
     const tools = this.getTools();
 
-    try {
-      // 调用 LLM
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `你是运行在区块链上的 AI Agent。
+    // 构建消息
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content: `你是运行在区块链上的 AI Agent。
 你的名字是 "DeFiAgent"。
 你拥有一个智能合约钱包，可以执行链上交易。
 
@@ -99,124 +113,108 @@ class AIAgent {
 - 每次交易前必须检查限额
 - 不执行任何可疑交易
 - 向用户清晰说明每笔交易的内容`,
-          },
-          { role: "user", content: userMessage },
-        ],
-        tools: tools,
-        tool_choice: "auto",
-      });
+      },
+      { role: "user", content: userMessage },
+    ];
 
-      const message = response.choices[0].message;
+    try {
+      // 调用 LLM（通过统一接口）
+      const response = await this.llm.chatCompletion(messages, tools);
 
       // 如果 LLM 决定调用工具
-      if (message.tool_calls) {
-        return await this.handleToolCalls(message.tool_calls);
+      if (response.toolCalls) {
+        return await this.handleToolCalls(response.toolCalls);
       }
 
       // 否则直接返回文本回复
-      return message.content || "我无法处理这个请求。";
+      return response.content || "我无法处理这个请求。";
     } catch (error: any) {
       return `❌ 处理消息时出错: ${error.message}`;
     }
   }
 
   /**
-   * 定义 Agent 可用的工具
+   * 定义 Agent 可用的工具（统一格式）
    */
-  private getTools(): any[] {
+  private getTools(): ToolDefinition[] {
     return [
       {
-        type: "function",
-        function: {
-          name: "getWalletBalance",
-          description: "查询钱包的 ETH 余额",
-          parameters: { type: "object", properties: {} },
-        },
+        name: "getWalletBalance",
+        description: "查询钱包的 ETH 余额",
+        parameters: { type: "object", properties: {} },
       },
       {
-        type: "function",
-        function: {
-          name: "getAgentInfo",
-          description: "查询 Agent 的配置信息（限额、活跃状态等）",
-          parameters: { type: "object", properties: {} },
-        },
+        name: "getAgentInfo",
+        description: "查询 Agent 的配置信息（限额、活跃状态等）",
+        parameters: { type: "object", properties: {} },
       },
       {
-        type: "function",
-        function: {
-          name: "transferETH",
-          description: "从钱包向指定地址转账 ETH",
-          parameters: {
-            type: "object",
-            properties: {
-              to: {
-                type: "string",
-                description: "接收地址",
-              },
-              amount: {
-                type: "string",
-                description: "ETH 数量（如 0.01）",
-              },
+        name: "transferETH",
+        description: "从钱包向指定地址转账 ETH",
+        parameters: {
+          type: "object",
+          properties: {
+            to: {
+              type: "string",
+              description: "接收地址",
             },
-            required: ["to", "amount"],
+            amount: {
+              type: "string",
+              description: "ETH 数量（如 0.01）",
+            },
           },
+          required: ["to", "amount"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "transferToken",
-          description: "从钱包向指定地址转账 ERC-20 代币",
-          parameters: {
-            type: "object",
-            properties: {
-              token: {
-                type: "string",
-                description: "代币合约地址",
-              },
-              to: {
-                type: "string",
-                description: "接收地址",
-              },
-              amount: {
-                type: "string",
-                description: "代币数量",
-              },
+        name: "transferToken",
+        description: "从钱包向指定地址转账 ERC-20 代币",
+        parameters: {
+          type: "object",
+          properties: {
+            token: {
+              type: "string",
+              description: "代币合约地址",
             },
-            required: ["token", "to", "amount"],
+            to: {
+              type: "string",
+              description: "接收地址",
+            },
+            amount: {
+              type: "string",
+              description: "代币数量",
+            },
           },
+          required: ["token", "to", "amount"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "swapTokens",
-          description: "在 Uniswap 上交换代币",
-          parameters: {
-            type: "object",
-            properties: {
-              tokenIn: { type: "string", description: "输入代币地址" },
-              tokenOut: { type: "string", description: "输出代币地址" },
-              amountIn: { type: "string", description: "输入数量" },
-              minAmountOut: { type: "string", description: "最小输出数量" },
-            },
-            required: ["tokenIn", "tokenOut", "amountIn", "minAmountOut"],
+        name: "swapTokens",
+        description: "在 Uniswap 上交换代币",
+        parameters: {
+          type: "object",
+          properties: {
+            tokenIn: { type: "string", description: "输入代币地址" },
+            tokenOut: { type: "string", description: "输出代币地址" },
+            amountIn: { type: "string", description: "输入数量" },
+            minAmountOut: { type: "string", description: "最小输出数量" },
           },
+          required: ["tokenIn", "tokenOut", "amountIn", "minAmountOut"],
         },
       },
     ];
   }
 
   /**
-   * 处理工具调用
+   * 处理工具调用（使用统一的 ToolCall 格式）
    */
-  private async handleToolCalls(toolCalls: any[]): Promise<string> {
+  private async handleToolCalls(toolCalls: ToolCall[]): Promise<string> {
     let results: string[] = [];
 
     for (const call of toolCalls) {
-      const args = JSON.parse(call.function.arguments);
+      const args = call.arguments;
 
-      switch (call.function.name) {
+      switch (call.name) {
         case "getWalletBalance": {
           const balance = await this.walletContract.getBalance();
           results.push(`💰 钱包余额: ${ethers.formatEther(balance)} ETH`);
@@ -332,6 +330,9 @@ class AIAgent {
 
 async function main() {
   const agent = new AIAgent();
+
+  // 初始化 LLM 提供商（异步验证配置）
+  await agent.init();
 
   console.log(`
 ╔══════════════════════════════════════╗
