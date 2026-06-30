@@ -188,15 +188,25 @@ npx hardhat verify --network baseSepolia <合约地址> <构造函数参数>
 
 **现象**：想运行 Agent 但没有 API Key
 
-**解决**：使用 mock 模式：
+**解决**：使用本地 Ollama 或 mock 模式：
 ```bash
-# 运行 mock demo（不需要任何 API Key）
+# 方法1：切换到 Ollama 本地模型（无需 API Key）
+# 先安装并启动 Ollama: https://ollama.ai/
+ollama serve
+ollama pull llama3
+
+# 在 .env 中配置：
+# LLM_PROVIDER=ollama
+# LLM_MODEL=llama3
+npx ts-node agent/simple-agent.ts
+
+# 方法2：运行 mock demo（不需要任何 API Key）
 npx hardhat run scripts/agent-mock-demo.ts --network hardhat
 
-# 或使用免费替代方案：
-# 1. Groq（免费额度）: https://console.groq.com/
-# 2. Ollama（本地运行）: https://ollama.ai/
-# 3. Together AI（免费试用）: https://www.together.ai/
+# 方法3：使用其他免费/低成本替代方案：
+# - Groq（免费额度）: https://console.groq.com/
+# - Together AI（免费试用）: https://www.together.ai/
+# - Google Gemini（免费额度）: https://aistudio.google.com/
 ```
 
 ### Agent 交易被拒绝

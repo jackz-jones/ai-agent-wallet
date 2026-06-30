@@ -159,7 +159,8 @@ cp .env.example .env
 | `SEPOLIA_RPC_URL` | 连接测试网 | 注册 [Alchemy](https://www.alchemy.com/) 免费账号，创建 App 选择 Base Sepolia | 部署到测试网时需要 |
 | `PRIVATE_KEY` | 部署合约的账号 | MetaMask → 账户详情 → 导出私钥 | 部署到测试网时需要 |
 | `ETHERSCAN_API_KEY` | 验证合约源码 | 注册 [Etherscan](https://etherscan.io/apis) | 可选 |
-| `OPENAI_API_KEY` | Agent 的 AI 能力 | [OpenAI Platform](https://platform.openai.com/api-keys) | 第4章需要 |
+| `LLM_PROVIDER` | LLM 提供商 | 可选值：openai / ollama / anthropic / gemini | 第4章需要（默认 openai） |
+| `LLM_API_KEY` | Agent 的 AI 能力 | 根据提供商获取对应 API Key（Ollama 无需配置） | 第4章需要 |
 
 > ⚠️ **安全警告**：
 > - **永远不要**将 `.env` 文件提交到 Git！（已在 `.gitignore` 中排除）

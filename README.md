@@ -143,18 +143,33 @@ ai-agent-wallet/
 │   └── StrategyManager.sol       # DeFi 策略管理器
 ├── scripts/                      # 部署与交互脚本
 │   ├── demo.ts                   # ⚡ 快速体验 Demo
-│   ├── deploy.ts                 # 部署所有合约
+│   ├── deploy.ts                 # 部署合约
+│   ├── deploy-all.ts             # 一键部署全部
 │   ├── configure-agent.ts        # 配置 Agent
 │   ├── test-agent.ts             # 测试 Agent 功能
 │   ├── send-user-op.ts           # 发送 UserOperation
-│   └── deploy-all.ts             # 一键部署全部
+│   └── agent-mock-demo.ts        # Agent Mock 演示（无需 API Key）
 ├── agent/                        # Agent 应用代码（第4-6章）
 │   ├── simple-agent.ts           # 基础 Agent 示例
-│   ├── defi-agent.ts             # DeFi Agent 示例
 │   ├── agent-kit.ts              # Coinbase AgentKit 集成
-│   └── agent-with-x402.ts        # 集成 x402 的 Agent
+│   ├── defi-agent.ts             # DeFi Agent 完整示例
+│   ├── x402-consumer.ts          # x402 消费者
+│   ├── agent-with-x402.ts        # 集成 x402 的 Agent
+│   └── llm/                      # LLM 多模型抽象层
+│       ├── types.ts              # 统一类型定义
+│       ├── config.ts             # 配置加载
+│       ├── index.ts              # 工厂函数入口
+│       ├── fallback.ts           # Function Calling 降级方案
+│       ├── langchain-adapter.ts  # LangChain 适配器
+│       └── providers/            # 各提供商适配器
+│           ├── openai.ts         # OpenAI
+│           ├── ollama.ts         # Ollama（本地模型）
+│           ├── anthropic.ts      # Anthropic Claude
+│           └── gemini.ts         # Google Gemini
 ├── server/                       # 服务端代码（第5章）
 │   └── x402-provider.ts          # x402 提供者服务
+├── frontend/                     # 前端（第6章）
+│   └── index.html                # 管理面板
 ├── test/                         # 测试
 │   ├── AgentWallet.test.ts       # 钱包合约测试
 │   └── PolicyEngine.test.ts      # 策略引擎测试
@@ -163,7 +178,7 @@ ai-agent-wallet/
     ├── 01-solidity-basics.md     # Solidity 基础
     ├── 02-erc4337-wallet.md      # ERC-4337 钱包
     ├── 03-policy-engine.md       # 策略引擎（含白名单/黑名单对比、滑点保护⚡）
-    ├── 04-agent-app.md           # Agent 应用
+    ├── 04-agent-app.md           # Agent 应用（多模型支持）
     ├── 05-x402-payment.md        # x402 支付
     ├── 06-full-project.md        # 完整实战
     ├── troubleshooting.md        # 常见问题排查
@@ -180,7 +195,7 @@ ai-agent-wallet/
 1. ✅ 理解 AI Agent + 区块链的完整技术栈和设计理念
 2. ✅ 编写和部署 ERC-4337 智能合约钱包
 3. ✅ 设计 AI Agent 的安全策略引擎（限额、白名单/黑名单、速率限制、滑点保护⚡）
-4. ✅ 开发能用钱包自主交易的 AI Agent（基于 LLM）
+4. ✅ 开发能用钱包自主交易的 AI Agent（支持 OpenAI/Ollama/Claude/Gemini 多种 LLM）
 5. ✅ 集成 x402 协议实现 Agent 自主支付
 6. ✅ 构建一个完整的 DeFi 自动理财 Agent
 7. ✅ 理解 DEX/AMM/滑点/三明治攻击等 DeFi 核心概念
@@ -200,6 +215,8 @@ ai-agent-wallet/
 | `npm run configure` | 配置 Agent |
 | `npm run agent:simple` | 启动基础 Agent |
 | `npm run agent:defi` | 启动 DeFi Agent |
+| `npm run agent:kit` | 启动 AgentKit Agent |
+| `npm run agent:x402` | 启动集成 x402 的 Agent |
 | `npm run server:x402` | 启动 x402 服务端 |
 
 ---

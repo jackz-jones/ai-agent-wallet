@@ -375,7 +375,6 @@ provider.start(3000);
 创建 `agent/agent-with-x402.ts`：
 
 ```typescript
-import OpenAI from "openai";
 import { X402Consumer } from "./x402-consumer";
 import { AIAgent } from "./simple-agent";
 
@@ -404,49 +403,40 @@ class AgentWithX402 extends AIAgent {
     return [
       ...baseTools,
       {
-        type: "function",
-        function: {
-          name: "x402Search",
-          description: "通过 x402 微支付搜索互联网（每次 $0.001）",
-          parameters: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "搜索关键词" },
-            },
-            required: ["query"],
+        name: "x402Search",
+        description: "通过 x402 微支付搜索互联网（每次 $0.001）",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "搜索关键词" },
           },
+          required: ["query"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "x402CallAI",
-          description: "通过 x402 微支付调用外部 AI 模型（每次 $0.01）",
-          parameters: {
-            type: "object",
-            properties: {
-              prompt: { type: "string", description: "提示词" },
-            },
-            required: ["prompt"],
+        name: "x402CallAI",
+        description: "通过 x402 微支付调用外部 AI 模型（每次 $0.01）",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt: { type: "string", description: "提示词" },
           },
+          required: ["prompt"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "x402GetData",
-          description: "通过 x402 微支付获取链上数据（每次 $0.05）",
-          parameters: {
-            type: "object",
-            properties: {
-              dataType: {
-                type: "string",
-                enum: ["price", "volume", "gas"],
-                description: "数据类型",
-              },
+        name: "x402GetData",
+        description: "通过 x402 微支付获取链上数据（每次 $0.05）",
+        parameters: {
+          type: "object",
+          properties: {
+            dataType: {
+              type: "string",
+              enum: ["price", "volume", "gas"],
+              description: "数据类型",
             },
-            required: ["dataType"],
           },
+          required: ["dataType"],
         },
       },
     ];

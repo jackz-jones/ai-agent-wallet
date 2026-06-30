@@ -761,7 +761,7 @@ npx ts-node agent/agent-kit.ts
 # 确认 TypeScript 编译无错误
 npx tsc --noEmit agent/simple-agent.ts 2>/dev/null || echo "请确保已安装依赖"
 
-# 运行基础 Agent（需要 OPENAI_API_KEY）
+# 运行基础 Agent（需要配置 LLM_API_KEY，或使用 Ollama 本地模型）
 npx ts-node agent/simple-agent.ts
 
 # 或者运行 mock 模式（不需要 API Key）

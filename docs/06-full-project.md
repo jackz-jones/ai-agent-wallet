@@ -25,7 +25,7 @@ Agent: ✅ 已设置自动任务，每天 UTC 8:00 执行
 | 组件 | 技术 | 用途 |
 |------|------|------|
 | 智能合约 | Solidity + Hardhat | 钱包 + 策略引擎 |
-| AI 大脑 | GPT-4o (OpenAI) | 理解意图、决策 |
+| AI 大脑 | 多模型支持（OpenAI/Ollama/Claude/Gemini） | 理解意图、决策 |
 | 链上交互 | ethers.js | 执行交易 |
 | 支付 | x402 协议 | 微支付调用外部服务 |
 | 自动化 | node-cron | 定时任务 |
@@ -36,23 +36,44 @@ Agent: ✅ 已设置自动任务，每天 UTC 8:00 执行
 ## 6.2 项目结构
 
 ```
-defi-agent/
+ai-agent-wallet/
 ├── contracts/
 │   ├── AgentWallet.sol        # 钱包合约（第2章）
 │   ├── PolicyEngine.sol       # 策略引擎（第3章）
+│   ├── PolicyTemplates.sol    # 策略模板库（第3章）
 │   └── StrategyManager.sol    # 策略管理器（新增）
 ├── agent/
-│   ├── defi-agent.ts          # DeFi Agent 主程序
-│   ├── uniswap-tool.ts        # Uniswap 交互工具
-│   ├── aave-tool.ts           # Aave 交互工具
-│   └── scheduler.ts           # 定时任务调度器
+│   ├── simple-agent.ts        # 基础 Agent 示例（第4章）
+│   ├── agent-kit.ts           # Coinbase AgentKit 集成（第4章）
+│   ├── defi-agent.ts          # DeFi Agent 主程序（本章）
+│   ├── x402-consumer.ts       # x402 消费者（第5章）
+│   ├── agent-with-x402.ts     # 集成 x402 的 Agent（第5章）
+│   └── llm/                   # LLM 多模型抽象层（第4章）
+│       ├── types.ts           # 统一类型定义
+│       ├── config.ts          # 配置加载
+│       ├── index.ts           # 工厂函数入口
+│       ├── fallback.ts        # Function Calling 降级方案
+│       ├── langchain-adapter.ts # LangChain 适配器
+│       └── providers/         # 各提供商适配器
+│           ├── openai.ts
+│           ├── ollama.ts
+│           ├── anthropic.ts
+│           └── gemini.ts
 ├── scripts/
-│   ├── deploy-all.ts          # 一键部署所有合约
-│   └── setup-agent.ts         # 初始化 Agent 配置
+│   ├── demo.ts               # ⚡ 快速体验 Demo
+│   ├── deploy.ts             # 部署合约
+│   ├── deploy-all.ts         # 一键部署所有合约
+│   ├── configure-agent.ts    # 配置 Agent
+│   ├── test-agent.ts         # 测试 Agent 功能
+│   ├── send-user-op.ts       # 发送 UserOperation
+│   └── agent-mock-demo.ts    # Agent Mock 演示
+├── server/
+│   └── x402-provider.ts      # x402 提供者服务（第5章）
 ├── test/
-│   └── defi-agent.test.ts     # 集成测试
+│   ├── AgentWallet.test.ts   # 钱包合约测试
+│   └── PolicyEngine.test.ts  # 策略引擎测试
 └── frontend/
-    └── dashboard.html         # 管理面板
+    └── index.html            # 管理面板
 ```
 
 ---
@@ -219,10 +240,11 @@ contract StrategyManager {
 创建 `agent/defi-agent.ts`：
 
 ```typescript
-import OpenAI from "openai";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
 import cron from "node-cron";
+import { createLLMProvider, loadLLMConfig } from "./llm";
+import type { LLMProvider } from "./llm/types";
 
 dotenv.config();
 
@@ -237,7 +259,7 @@ dotenv.config();
  * 5. 通过 x402 获取市场数据
  */
 class DeFiAgent {
-  private openai: OpenAI;
+  private llm: LLMProvider;
   private provider: ethers.Provider;
   private wallet: ethers.Wallet;
   private walletContract: ethers.Contract;
@@ -250,7 +272,9 @@ class DeFiAgent {
   private readonly AAVE_POOL = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5";
 
   constructor() {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // 使用 LLM 抽象层，支持 OpenAI/Ollama/Claude/Gemini
+    const llmConfig = loadLLMConfig();
+    this.llm = createLLMProvider(llmConfig);
     this.provider = new ethers.JsonRpcProvider(process.env.BASE_RPC_URL);
     this.wallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY!, this.provider);
 
@@ -283,9 +307,7 @@ class DeFiAgent {
   async processMessage(userMessage: string): Promise<string> {
     const tools = this.getDeFiTools();
 
-    const response = await this.openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
+    const response = await this.llm.chatCompletion([
         {
           role: "system",
           content: `你是 DeFi 自动理财 Agent。
@@ -305,18 +327,13 @@ class DeFiAgent {
 - 关注 Gas 费用，避免浪费`,
         },
         { role: "user", content: userMessage },
-      ],
-      tools: tools,
-      tool_choice: "auto",
-    });
+      ], tools);
 
-    const message = response.choices[0].message;
-
-    if (message.tool_calls) {
-      return await this.handleDeFiCalls(message.tool_calls);
+    if (response.toolCalls && response.toolCalls.length > 0) {
+      return await this.handleDeFiCalls(response.toolCalls);
     }
 
-    return message.content || "我无法处理这个请求。";
+    return response.content || "我无法处理这个请求。";
   }
 
   /**
@@ -490,7 +507,7 @@ class DeFiAgent {
         case "swapTokens": {
           const tokenIn = args.tokenIn === "USDC" ? this.USDC : this.WETH;
           const tokenOut = args.tokenOut === "USDC" ? this.USDC : this.WETH;
-          const amountIn = ethers.parseUnits(args.amount, args.tokenIn === "USDC" ? 6 : 18ipse);
+          const amountIn = ethers.parseUnits(args.amount, args.tokenIn === "USDC" ? 6 : 18);
           const slippage = args.slippage || 0.5; // 默认 0.5% 滑点
 
           // 获取当前价格（简化版）
@@ -700,7 +717,7 @@ async function main() {
 
   // 4. 连接策略引擎到钱包
   console.log("\n🔗 连接策略引擎...");
-  await wallet.setPolicyEngine(engineAddressPropTypes);
+  await wallet.setPolicyEngine(engineAddress);
   console.log("  ✅ 已连接");
 
   // 5. 配置策略
@@ -754,7 +771,7 @@ main().catch(console.error);
 
 ## 6.6 前端管理面板
 
-创建 `frontend/dashboard.html`：
+创建 `frontend/index.html`：
 
 ```html
 <!DOCTYPE html>
@@ -974,7 +991,7 @@ npx hardhat run scripts/deploy-all.ts --network base-sepolia
 npx ts-node agent/defi-agent.ts
 
 # 6. （可选）启动前端
-# 用 VS Code Live Server 打开 frontend/dashboard.html
+# 用 VS Code Live Server 打开 frontend/index.html
 ```
 
 ---
@@ -1024,7 +1041,7 @@ Agent: ✅ 自动策略已设置！
 
 你已完成整个实战项目：
 - ✅ 开发了策略管理器合约
-- ✅ 开发了完整的 DeFi Agent
+- ✅ 开发了完整的 DeFi Agent（支持多种 LLM 模型）
 - ✅ 集成了 Aave 存款/取款
 - ✅ 集成了 Uniswap 代币兑换
 - ✅ 实现了自动策略调度
@@ -1040,7 +1057,7 @@ Agent: ✅ 自动策略已设置！
 1. ✅ 编写和部署 Solidity 智能合约
 2. ✅ 开发 ERC-4337 智能合约钱包
 3. ✅ 设计 AI Agent 策略引擎
-4. ✅ 开发基于 LLM 的 AI Agent
+4. ✅ 开发基于多种 LLM 的 AI Agent（OpenAI/Ollama/Claude/Gemini）
 5. ✅ 集成 x402 支付协议
 6. ✅ 构建完整的 DeFi 自动理财应用
 

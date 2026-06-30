@@ -11,7 +11,7 @@
  * 【前置条件】
  * 1. 已完成 scripts/deploy.ts 部署
  * 2. 已将策略引擎地址设置到钱包合约
- * 3. 已安装依赖：npm install openai ethers dotenv
+ * 3. 已安装依赖：npm install ethers dotenv
  * 
  * 【运行方式】
  * npx ts-node agent/defi-agent.ts
@@ -22,9 +22,10 @@
  * 你: 查看我的 DeFi 仓位
  */
 
-import OpenAI from "openai";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import { createLLMProvider, loadLLMConfig } from "./llm";
+import type { LLMProvider, ToolDefinition } from "./llm/types";
 
 dotenv.config();
 
@@ -56,15 +57,15 @@ const ERC20_ABI = [
  * 可以执行更复杂的 DeFi 操作
  */
 class DeFiAgent {
-  private openai: OpenAI;
+  private llm: LLMProvider;
   private provider: ethers.Provider;
   private agentWallet: ethers.Wallet;
   private walletContract: ethers.Contract;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // 使用 LLM 抽象层，支持 OpenAI/Ollama/Claude/Gemini
+    const llmConfig = loadLLMConfig();
+    this.llm = createLLMProvider(llmConfig);
 
     this.provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
     this.agentWallet = new ethers.Wallet(
@@ -88,9 +89,7 @@ class DeFiAgent {
     const tools = this.getTools();
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
+      const response = await this.llm.chatCompletion([
           {
             role: "system",
             content: `你是运行在区块链上的 DeFi AI Agent。
@@ -110,121 +109,95 @@ class DeFiAgent {
 - 先查询再操作`,
           },
           { role: "user", content: userMessage },
-        ],
-        tools: tools,
-        tool_choice: "auto",
-      });
+        ], tools);
 
-      const message = response.choices[0].message1;
-
-      if (message.tool_calls) {
-        return await this.handleToolCalls(message.tool_calls);
+      if (response.toolCalls && response.toolCalls.length > 0) {
+        return await this.handleToolCalls(response.toolCalls);
       }
 
-      return message.content || "我无法处理这个请求。";
+      return response.content || "我无法处理这个请求。";
     } catch (error: any) {
       return `❌ 处理消息时出错: ${error.message}`;
     }
   }
 
-  private getTools(): any[] {
+  private getTools(): ToolDefinition[] {
     return [
       {
-        type: "function",
-        function: {
-          name: "getWalletBalance",
-          description: "查询钱包的 ETH 余额",
-          parameters: { type: "object", properties: {} },
+        name: "getWalletBalance",
+        description: "查询钱包的 ETH 余额",
+        parameters: { type: "object", properties: {} },
+      },
+      {
+        name: "getTokenBalance",
+        description: "查询钱包中指定代币的余额",
+        parameters: {
+          type: "object",
+          properties: {
+            token: { type: "string", description: "代币合约地址" },
+          },
+          required: ["token"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "getTokenBalance",
-          description: "查询钱包中指定代币的余额",
-          parameters: {
-            type: "object",
-            properties: {
-              token: { type: "string", description: "代币合约地址" },
-            },
-            required: ["token"],
+        name: "swapETHForTokens",
+        description: "在 Uniswap 上用 ETH 兑换代币",
+        parameters: {
+          type: "object",
+          properties: {
+            tokenOut: { type: "string", description: "目标代币地址" },
+            amountIn: { type: "string", description: "ETH 数量" },
+            minAmountOut: { type: "string", description: "最小输出数量" },
           },
+          required: ["tokenOut", "amountIn", "minAmountOut"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "swapETHForTokens",
-          description: "在 Uniswap 上用 ETH 兑换代币",
-          parameters: {
-            type: "object",
-            properties: {
-              tokenOut: { type: "string", description: "目标代币地址" },
-              amountIn: { type: "string", description: "ETH 数量" },
-              minAmountOut: { type: "string", description: "最小输出数量" },
-            },
-            required: ["tokenOut", "amountIn", "minAmountOut"],
+        name: "swapTokensForETH",
+        description: "在 Uniswap 上用代币兑换 ETH",
+        parameters: {
+          type: "object",
+          properties: {
+            tokenIn: { type: "string", description: "输入代币地址" },
+            amountIn: { type: "string", description: "代币数量" },
+            minAmountOut: { type: "string", description: "最小 ETH 输出" },
           },
+          required: ["tokenIn", "amountIn", "minAmountOut"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "swapTokensForETH",
-          description: "在 Uniswap 上用代币兑换 ETH",
-          parameters: {
-            type: "object",
-            properties: {
-              tokenIn: { type: "string", description: "输入代币地址" },
-              amountIn: { type: "string", description: "代币数量" },
-              minAmountOut: { type: "string", description: "最小 ETH 输出" },
-            },
-            required: ["tokenIn", "amountIn", "minAmountOut"],
+        name: "supplyAave",
+        description: "在 Aave 上存入资产赚取利息",
+        parameters: {
+          type: "object",
+          properties: {
+            asset: { type: "string", description: "资产地址" },
+            amount: { type: "string", description: "存入数量" },
           },
+          required: ["asset", "amount"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "supplyAave",
-          description: "在 Aave 上存入资产赚取利息",
-          parameters: {
-            type: "object",
-            properties: {
-              asset: { type: "string", description: "资产地址" },
-              amount: { type: "string", description: "存入数量" },
-            },
-            required: ["asset", "amount"],
+        name: "withdrawAave",
+        description: "从 Aave 提取资产",
+        parameters: {
+          type: "object",
+          properties: {
+            asset: { type: "string", description: "资产地址" },
+            amount: { type: "string", description: "提取数量" },
           },
+          required: ["asset", "amount"],
         },
       },
       {
-        type: "function",
-        function: {
-          name: "withdrawAave",
-          description: "从 Aave 提取资产",
-          parameters: {
-            type: "object",
-            properties: {
-              asset: { type: "string", description: "资产地址" },
-              amount: { type: "string", description: "提取数量" },
-            },
-            required: ["asset", "amount"],
+        name: "getAavePosition",
+        description: "查询在 Aave 上的仓位信息",
+        parameters: {
+          type: "object",
+          properties: {
+            user: { type: "string", description: "用户地址" },
           },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "getAavePosition",
-          description: "查询在 Aave 上的仓位信息",
-          parameters: {
-            type: "object",
-            properties: {
-              user: { type: "string", description: "用户地址" },
-            },
-            required: ["user"],
-          },
+          required: ["user"],
         },
       },
     ];
@@ -234,9 +207,9 @@ class DeFiAgent {
     let results: string[] = [];
 
     for (const call of toolCalls) {
-      const args = JSON.parse(call.function.arguments);
+      const args = call.arguments;
 
-      switch (call.function.name) {
+      switch (call.name) {
         case "getWalletBalance": {
           const balance = await this.walletContract.getBalance();
           results.push(`💰 钱包余额: ${ethers.formatEther(balance)} ETH`);
