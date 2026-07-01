@@ -155,8 +155,12 @@ await expect(tx)
 **解决**：
 1. 确认 `.env` 中的 `PRIVATE_KEY` 对应的账户有足够的测试网 ETH
 2. 获取测试网 ETH：
-   - **Sepolia**: https://sepoliafaucet.com/ 或 https://www.alchemy.com/faucets/ethereum-sepolia
-   - **Base Sepolia**: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
+   - **Base Sepolia**: https://faucet.chainstack.com/base-sepolia （注册免费账号）
+   - **Base Sepolia**: https://faucet.quicknode.com/base/sepolia （注册免费账号）
+   - **Base Sepolia**: https://www.coinbase.com/faucets/base-ethereum-sepolia （需主网余额）
+   - **Base Sepolia**: https://www.alchemy.com/faucets/base-sepolia （需主网余额）
+   - **ETH Sepolia**: https://sepolia-faucet.pk910.de （无需注册，无需主网余额）
+   - **ETH Sepolia**: https://sepoliafaucet.com/ 或 https://www.alchemy.com/faucets/ethereum-sepolia
 
 ### Nonce 错误
 

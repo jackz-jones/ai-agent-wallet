@@ -15,12 +15,30 @@
 
 ## A.2 测试网水龙头
 
-| 网络 | 水龙头地址 |
-|------|-----------|
-| **Sepolia ETH** | https://sepoliafaucet.com |
-| **Sepolia ETH** | https://www.alchemy.com/faucets/ethereum-sepolia |
-| **Base Sepolia** | https://www.alchemy.com/faucets/base-sepolia |
-| **Goerli ETH** | https://goerlifaucet.com |
+### Base Sepolia
+
+| 水龙头 | 链接 | 说明 |
+|--------|------|------|
+| **Chainstack** | https://faucet.chainstack.com/base-sepolia | 注册免费账号即可领取 |
+| **QuickNode** | https://faucet.quicknode.com/base/sepolia | 注册免费账号即可领取 |
+| **Coinbase Faucet** | https://www.coinbase.com/faucets/base-ethereum-sepolia | 需主网余额 ≥0.001 ETH |
+| **Alchemy Faucet** | https://www.alchemy.com/faucets/base-sepolia | 需主网余额 ≥0.001 ETH |
+
+> ⚠️ 部分水龙头可能因访问限制暂时不可用，如无法使用请尝试其他选项或使用本地 Hardhat 节点。
+
+### Ethereum Sepolia
+
+| 水龙头 | 链接 | 说明     |
+|--------|------|--------|
+| **Sepolia ETH** | https://sepoliafaucet.com | 需主网余额  |
+| **Sepolia ETH** | https://www.alchemy.com/faucets/ethereum-sepolia | 需主网余额  |
+| **Sepolia PK910** | https://sepolia-faucet.pk910.de | 不需主网余额，无需注册 |
+
+### Goerli（已废弃）
+
+| 水龙头 | 链接 | 说明 |
+|--------|------|------|
+| **Goerli ETH** | https://goerlifaucet.com | Goerli 测试网已废弃，不推荐使用 |
 
 ## A.3 常用合约地址（Sepolia 测试网）
 

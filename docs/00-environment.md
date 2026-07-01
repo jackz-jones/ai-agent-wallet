@@ -186,9 +186,18 @@ cp .env.example .env
 
 | 水龙头 | 链接 | 说明 |
 |--------|------|------|
-| Coinbase Faucet | https://www.coinbase.com/faucets/base-ethereum-sepolia | ⭐ 推荐，稳定 |
-| Alchemy Faucet | https://www.alchemy.com/faucets/base-sepolia | 需要注册 |
-| QuickNode Faucet | https://faucet.quicknode.com/base/sepolia | 备选 |
+| **Chainstack** | https://faucet.chainstack.com/base-sepolia | 注册免费账号即可领取 |
+| **QuickNode** | https://faucet.quicknode.com/base/sepolia | 注册免费账号即可领取 |
+| Coinbase Faucet | https://www.coinbase.com/faucets/base-ethereum-sepolia | 需主网余额 ≥0.001 ETH |
+| Alchemy Faucet | https://www.alchemy.com/faucets/base-sepolia | 需主网余额 ≥0.001 ETH |
+
+> ⚠️ **水龙头可用性提示**：部分水龙头可能因访问限制暂时不可用。如果某个水龙头无法使用，请尝试列表中的其他水龙头。
+>
+> 💡 **如果所有外部水龙头都无法使用**，你可以先用本地 Hardhat 节点开发：
+> ```bash
+> npx hardhat node
+> ```
+> 本地节点会自动分配 1000 ETH 到测试账户，无需水龙头。
 
 ---
 
