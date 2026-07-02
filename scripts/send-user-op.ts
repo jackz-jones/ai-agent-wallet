@@ -62,7 +62,7 @@ async function main() {
     ["function getNonce(address sender, uint192 key) view returns (uint256 nonce)"],
     provider
   );
-  const nonce = await entryPoint.getNonce(WALLET_ADDRESS, 0apse);
+  const nonce = await entryPoint.getNonce(WALLET_ADDRESS, 0);
   console.log("  Nonce:", nonce.toString());
 
   // 构造要执行的交易数据：调用钱包合约的 execute() 函数
@@ -147,11 +147,12 @@ async function main() {
           userOp,
           ENTRY_POINT,
         ],
-      }),
+      }, (key, value) => typeof value === "bigint" ? value.toString() : value),
     });
 
     const bundlerResult = await bundlerResponse.json();
-    console.log("  Bundler 响应:", JSON.stringify(bundlerResult, null, 2));
+    console.log("  Bundler 响应:", JSON.stringify(bundlerResult, (key, value) =>
+      typeof value === "bigint" ? value.toString() : value, 2));
 
     if (bundlerResult.result) {
       console.log("\n✅ UserOperation 已提交！");
@@ -175,7 +176,7 @@ async function main() {
   console.log(`
 UserOperation 完整数据（可用于本地 Bundler 测试）：
 
-${JSON.stringify(userOp, null, 2)}
+${JSON.stringify(userOp, (key, value) => typeof value === "bigint" ? value.toString() : value, 2)}
 
 在本地 Bundler 中运行：
   curl ${BUNDLER_URL} \\
@@ -186,7 +187,7 @@ ${JSON.stringify(userOp, null, 2)}
       id: 1,
       method: "eth_sendUserOperation",
       params: [userOp, ENTRY_POINT],
-    })}'
+    }, (key, value) => typeof value === "bigint" ? value.toString() : value)}'
 `);
 }
 

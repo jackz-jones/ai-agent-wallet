@@ -52,7 +52,8 @@ async function main() {
 
   fs.writeFileSync(
     "deployment.json",
-    JSON.stringify(deploymentInfo, null, 2)
+    JSON.stringify(deploymentInfo, (key, value) =>
+      typeof value === "bigint" ? value.toString() : value, 2)
   );
   console.log("\nDeployment info saved to deployment.json");
 }

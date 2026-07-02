@@ -109,7 +109,8 @@ async function main() {
     timestamp: new Date().toISOString(),
   };
 
-  fs.writeFileSync("agent-config.json", JSON.stringify(configInfo, null, 2));
+  fs.writeFileSync("agent-config.json", JSON.stringify(configInfo, (key, value) =>
+      typeof value === "bigint" ? value.toString() : value, 2));
   console.log("\nAgent configuration saved to agent-config.json");
 }
 
